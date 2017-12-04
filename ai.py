@@ -103,15 +103,12 @@ class Brain:
 		self.__last_action = 0
 		self.__last_reward = 0
 
-	def select_action(self, state):
-		probs = nn.functional.softmax(
-			self.__module(autograd.Variable(state, volatile = True)) * _SCALE_FACTOR,
-			dim=1
-		)
-		action = probs.multinomial()
-		return action.data[0,0]
+	def __select_action(self, state):
+		return nn.functional.softmax(
+			self.__module(autograd.Variable(state, volatile = True)) * _SCALE_FACTOR, dim=1
+		).multinomial().data[0,0]
 
-	def learn(self, batch_state, batch_next_state, batch_reward, batch_action):
+	def __learn(self, batch_state, batch_next_state, batch_reward, batch_action):
 		outputs = self.__module(batch_state).gather(1, batch_action.unsqueeze(1)).squeeze(1)
 		next_outputs = self.__module(batch_next_state).detach().max(1)[0]  # action = 1, state = 0
 		target = self.__gamma*next_outputs + batch_reward
@@ -130,10 +127,10 @@ class Brain:
 				torch.Tensor([self.__last_reward])
 			)
 		)
-		action = self.select_action(new_state)
+		action = self.__select_action(new_state)
 		if len(self.__memory.data) > 100:
 			batch_state, batch_next_state, batch_action, batch_reward = self.__memory.recall(100)
-			self.learn(batch_state, batch_next_state, batch_reward, batch_action)
+			self.__learn(batch_state, batch_next_state, batch_reward, batch_action)
 		self.__last_action = action
 		self.__last_state = new_state
 		self.__last_reward = reward
