@@ -68,8 +68,8 @@ class _ShortTermMemory:
 		return map(lambda x: autograd.Variable(torch.cat(x, 0)), samples)
 
 	@property
-	def data(self):
-		return self.__data
+	def size(self):
+		return len(self.__data)
 
 
 class Brain:
@@ -79,7 +79,7 @@ class Brain:
 
 	def __init__(self, input_size, output_size, discount_factor):
 		self.__gamma = discount_factor
-		self.__reward_window = []
+		self.__last_rewards = []  # is used for plotting
 		self.__module = _DrivingModule(input_size, output_size)
 		self.__memory = _ShortTermMemory(100000)
 		# below is one of many variants of gradient descent tools
@@ -128,20 +128,23 @@ class Brain:
 			)
 		)
 		action = self.__select_action(new_state)
-		if len(self.__memory.data) > 100:
-			batch_state, batch_next_state, batch_action, batch_reward = self.__memory.recall(100)
-			self.__learn(batch_state, batch_next_state, batch_reward, batch_action)
+
+		if self.__memory.size > 100:
+			self.__learn(self.__memory.recall(100))
+
 		self.__last_action = action
 		self.__last_state = new_state
 		self.__last_reward = reward
-		self.__reward_window.append(reward)
 
-		if len(self.__reward_window) > 1000:
-			del self.__reward_window[0]
+		self.__last_rewards.append(reward)
+
+		if len(self.__last_rewards) > 1000:
+			del self.__last_rewards[0]
+
 		return action
 
 	def score(self):
-		return sum(self.__reward_window)/(len(self.__reward_window)+1.0)
+		return sum(self.__last_rewards)/(len(self.__last_rewards) + 1.0)
 
 	def save(self):
 		torch.save({
@@ -151,10 +154,6 @@ class Brain:
 
 	def load(self):
 		if os.path.isfile('last_brain.pth'):
-			print("=> loading checkpoint... ")
 			checkpoint = torch.load('last_brain.pth')
 			self.__module.load_state_dict(checkpoint['state_dict'])
 			self.__optimizer.load_state_dict(checkpoint['optimizer'])
-			print("done !")
-		else:
-			print("no checkpoint found...")

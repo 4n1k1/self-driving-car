@@ -18,43 +18,37 @@ from ai import Brain
 # Adding this line if we don't want the right click to put a red point
 Config.set('input', 'mouse', 'mouse,multitouch_on_demand')
 
+_MAP_WIDTH = 20
+_MAP_HEIGHT = 20
+
+_DESTINATION_X = 19
+_DESTINATION_Y = 19
+
+
 class Car(Widget):
-    
+
 	__INPUT_SIZE = 5  # [self.car.signal1, self.car.signal2, self.car.signal3, orientation, -orientation]
 	__ROTATIONS = [0, 20, -20]
 	__DISCOUNT_FACTOR = 0.9
 
-	angle = NumericProperty(0)
-	rotation = NumericProperty(0)
-	velocity_x = NumericProperty(0)
-	velocity_y = NumericProperty(0)
-	velocity = ReferenceListProperty(velocity_x, velocity_y)
-	sensor1_x = NumericProperty(0)
-	sensor1_y = NumericProperty(0)
-	sensor1 = ReferenceListProperty(sensor1_x, sensor1_y)
-	sensor2_x = NumericProperty(0)
-	sensor2_y = NumericProperty(0)
-	sensor2 = ReferenceListProperty(sensor2_x, sensor2_y)
-	sensor3_x = NumericProperty(0)
-	sensor3_y = NumericProperty(0)
-	sensor3 = ReferenceListProperty(sensor3_x, sensor3_y)
-	signal1 = NumericProperty(0)
-	signal2 = NumericProperty(0)
-	signal3 = NumericProperty(0)
-
-	def __init__(self):
+	def __init__(self, car_idx):
 		Widget.__init__(self)
 
 		self.__brain = Brain(
+			car_idx,
 			self.__INPUT_SIZE,
 			self.__ROTATIONS,
 			self.__DISCOUNT_FACTOR,
 		)
 
 		self.__scores = []
+		self.__velocity = Vector(5.0 + car_idx, 0.0)
+
+	def save(self):
+		self.__brain.save()
 
 	def move(self, rotation):
-		self.pos = Vector(*self.velocity) + self.pos
+		self.pos = Vector(*self.__velocity) + self.pos
 		self.rotation = rotation
 		self.angle = self.angle + self.rotation
 
@@ -62,23 +56,9 @@ class Car(Widget):
 		self.sensor2 = Vector(30, 0).rotate((self.angle+30)%360) + self.pos
 		self.sensor3 = Vector(30, 0).rotate((self.angle-30)%360) + self.pos
 
-		self.signal1 = int(np.sum(sand[int(self.sensor1_x)-10:int(self.sensor1_x)+10, int(self.sensor1_y)-10:int(self.sensor1_y)+10]))/400.
-		self.signal2 = int(np.sum(sand[int(self.sensor2_x)-10:int(self.sensor2_x)+10, int(self.sensor2_y)-10:int(self.sensor2_y)+10]))/400.
-		self.signal3 = int(np.sum(sand[int(self.sensor3_x)-10:int(self.sensor3_x)+10, int(self.sensor3_y)-10:int(self.sensor3_y)+10]))/400.
-
-		if self.sensor1_x>longueur-10 or self.sensor1_x<10 or self.sensor1_y>largeur-10 or self.sensor1_y<10:
-			self.signal1 = 1.
-		if self.sensor2_x>longueur-10 or self.sensor2_x<10 or self.sensor2_y>largeur-10 or self.sensor2_y<10:
-			self.signal2 = 1.
-		if self.sensor3_x>longueur-10 or self.sensor3_x<10 or self.sensor3_y>largeur-10 or self.sensor3_y<10:
-			self.signal3 = 1.
-
-
-_MAP_WIDTH = 20
-_MAP_HEIGHT = 20
-
-_DESTINATION_X = 20
-_DESTINATION_Y = 0
+		self.signal1 = int(np.sum(sand[int(self.sensor1.x)-10:int(self.sensor1.x)+10, int(self.sensor1.y)-10:int(self.sensor1.y)+10]))/400.
+		self.signal2 = int(np.sum(sand[int(self.sensor2.x)-10:int(self.sensor2.x)+10, int(self.sensor2.y)-10:int(self.sensor2.y)+10]))/400.
+		self.signal3 = int(np.sum(sand[int(self.sensor3.x)-10:int(self.sensor3.x)+10, int(self.sensor3.y)-10:int(self.sensor3.y)+10]))/400.
 
 
 class Map(Widget):
@@ -86,10 +66,13 @@ class Map(Widget):
 	def __init__(self):
 		Widget.__init__(self)
 
+		self.width = _MAP_WIDTH
+		self.height = _MAP_HEIGHT
+
 		self.__cars = []
 
-		for i in range(1, _NUMBER_OF_CARS):
-			self.__cars.append(ObjectProperty(None))
+		for i in range(0, _NUMBER_OF_CARS):
+			self.__cars.append(Car(i))
 
 		self.__sand = np.zeros(
 			(self.width, self.height,)
@@ -101,10 +84,6 @@ class Map(Widget):
 	def save(self):
 		for car in self.__cars:
 			car.save()
-
-	def serve_car(self):
-		self.__car.center = self.center
-		self.__car.velocity = Vector(6, 0)
 
 	def clear(self):
 		self.__sand = np.zeros((self.width, self.height,))
@@ -197,13 +176,11 @@ class CarApp(App):
 		self.__painter = MyPaintWidget()
 
 	def build(self):
-		self.__map.serve_car()
-
 		Clock.schedule_interval(self.__map.update, 1.0/60.0)
 
 		clearbtn = Button(text = 'clear')
 		savebtn = Button(text = 'save', pos = (parent.width, 0))
-		loadbtn = Button(text = 'load', pos = (2 * parent.width, 0))
+		loadbtn = Button(text = 'load', pos = (2 * parent.width, 0))  # disable if there is no file to load
 
 		clearbtn.bind(on_release=self.__clear_canvas)
 		savebtn.bind(on_release=self.__save)
