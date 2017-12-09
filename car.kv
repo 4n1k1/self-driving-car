@@ -1,5 +1,5 @@
 <Sensor>:
-    size: 10,10
+    size: 10, 10
     canvas:
         Color:
             rgba: self.color
@@ -7,7 +7,7 @@
             pos: self.pos
             size: self.size
 
-<Car>:
+<Body>:
     size: 20, 10
 
     canvas:
@@ -16,4 +16,15 @@
 
         Rectangle:
             pos: self.pos
+            size: self.size
+
+<Center>
+    size: 1, 1
+
+    canvas:
+        Color:
+            rgba: 0.5, 0.5, 0.5, 1
+
+        Ellipse:
+            pos: 0, 0
             size: self.size
