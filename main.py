@@ -44,13 +44,16 @@ class Car(Widget):
 		self.__scores = []
 		self.__velocity = Vector(5.0 + car_idx, 0.0)
 
+		self.add_widget(Sensor(Vector(-7, -15) + self.pos, (1, 0, 0, 1)))
+		self.add_widget(Sensor(Vector(-15, 0) + self.pos, (0, 1, 0, 1)))
+		self.add_widget(Sensor(Vector(-7, 15) + self.pos, (0, 0, 1, 1)))
+
 	def save(self):
 		self.__brain.save()
 
 	def move(self, rotation):
 		self.pos = Vector(*self.__velocity) + self.pos
-		self.rotation = rotation
-		self.angle = self.angle + self.rotation
+		self.angle = self.angle + rotation
 
 		self.sensor1 = Vector(30, 0).rotate(self.angle) + self.pos
 		self.sensor2 = Vector(30, 0).rotate((self.angle+30)%360) + self.pos
@@ -59,6 +62,14 @@ class Car(Widget):
 		self.signal1 = int(np.sum(sand[int(self.sensor1.x)-10:int(self.sensor1.x)+10, int(self.sensor1.y)-10:int(self.sensor1.y)+10]))/400.
 		self.signal2 = int(np.sum(sand[int(self.sensor2.x)-10:int(self.sensor2.x)+10, int(self.sensor2.y)-10:int(self.sensor2.y)+10]))/400.
 		self.signal3 = int(np.sum(sand[int(self.sensor3.x)-10:int(self.sensor3.x)+10, int(self.sensor3.y)-10:int(self.sensor3.y)+10]))/400.
+
+
+class Sensor(Widget):
+	def __init__(self, pos, color):
+		self.color = color
+		self.pos = pos
+
+		Widget.__init__(self)
 
 
 class Map(Widget):
@@ -70,16 +81,19 @@ class Map(Widget):
 		self.height = _MAP_HEIGHT
 
 		self.__cars = []
-
-		for i in range(0, _NUMBER_OF_CARS):
-			self.__cars.append(Car(i))
-
 		self.__sand = np.zeros(
 			(self.width, self.height,)
 		)
 
 		self.__goal_x = _DESTINATION_X
 		self.__goal_y = _DESTINATION_Y
+
+	def build(self):
+		for i in range(0, _NUMBER_OF_CARS):
+			car = Car(i)
+
+			self.__cars.append(car)
+			self.add_widget(car)
 
 	def save(self):
 		for car in self.__cars:
@@ -89,50 +103,51 @@ class Map(Widget):
 		self.__sand = np.zeros((self.width, self.height,))
 
 	def update(self, dt):
-		xx = goal_x - self.car.x
-		yy = goal_y - self.car.y
+		for car in self.__cars:
+			xx = goal_x - car.x
+			yy = goal_y - car.y
 
-		orientation = Vector(*self.car.velocity).angle((xx,yy))/180.
+			orientation = Vector(*car.velocity).angle((xx,yy))/180.
 
-		last_signal = [self.car.signal1, self.car.signal2, self.car.signal3, orientation, -orientation]
+			last_signal = [car.signal1, car.signal2, self.car.signal3, orientation, -orientation]
 
-		action = brain.update(last_reward, last_signal)
+			action = brain.update(last_reward, last_signal)
 
-		scores.append(brain.score())
-		rotation = action2rotation[action]
-		self.car.move(rotation)
-		distance = np.sqrt((self.car.x - goal_x)**2 + (self.car.y - goal_y)**2)
-		self.ball1.pos = self.car.sensor1
-		self.ball2.pos = self.car.sensor2
-		self.ball3.pos = self.car.sensor3
+			scores.append(brain.score())
+			rotation = action2rotation[action]
+			self.car.move(rotation)
+			distance = np.sqrt((self.car.x - goal_x)**2 + (self.car.y - goal_y)**2)
+			self.ball1.pos = self.car.sensor1
+			self.ball2.pos = self.car.sensor2
+			self.ball3.pos = self.car.sensor3
 
-		if sand[int(self.car.x),int(self.car.y)] > 0:
-			self.car.velocity = Vector(1, 0).rotate(self.car.angle)
-			last_reward = -0.5
-		else:
-			self.car.velocity = Vector(6, 0).rotate(self.car.angle)
-			last_reward = -0.2
-			if distance < last_distance:
-				last_reward = 0.1
+			if sand[int(self.car.x),int(self.car.y)] > 0:
+				self.car.velocity = Vector(1, 0).rotate(self.car.angle)
+				last_reward = -0.5
+			else:
+				self.car.velocity = Vector(6, 0).rotate(self.car.angle)
+				last_reward = -0.2
+				if distance < last_distance:
+					last_reward = 0.1
 
-		if self.car.x < 10:
-			self.car.x = 10
-			last_reward = -1
-		if self.car.x > self.width - 10:
-			self.car.x = self.width - 10
-			last_reward = -1
-		if self.car.y < 10:
-			self.car.y = 10
-			last_reward = -1
-		if self.car.y > self.height - 10:
-			self.car.y = self.height - 10
-			last_reward = -1
+			if self.car.x < 10:
+				self.car.x = 10
+				last_reward = -1
+			if self.car.x > self.width - 10:
+				self.car.x = self.width - 10
+				last_reward = -1
+			if self.car.y < 10:
+				self.car.y = 10
+				last_reward = -1
+			if self.car.y > self.height - 10:
+				self.car.y = self.height - 10
+				last_reward = -1
 
-		if distance < 100:
-			goal_x = self.width-goal_x
-			goal_y = self.height-goal_y
+			if distance < 100:
+				goal_x = self.width-goal_x
+				goal_y = self.height-goal_y
 
-		last_distance = distance
+			last_distance = distance
 
 
 class MyPaintWidget(Widget):
@@ -168,19 +183,21 @@ class MyPaintWidget(Widget):
 			self.__last_x = x
 			self.__last_y = y
 
-# Adding the API Buttons (clear, save and load)
+
 class CarApp(App):
 
 	def __init__(self):
+		App.__init__(self)
+
 		self.__map = Map()
 		self.__painter = MyPaintWidget()
 
 	def build(self):
 		Clock.schedule_interval(self.__map.update, 1.0/60.0)
 
-		clearbtn = Button(text = 'clear')
-		savebtn = Button(text = 'save', pos = (parent.width, 0))
-		loadbtn = Button(text = 'load', pos = (2 * parent.width, 0))  # disable if there is no file to load
+		clearbtn = Button(text='clear')
+		savebtn = Button(text='save', pos = (parent.width, 0))
+		loadbtn = Button(text='load', pos = (2 * parent.width, 0))  # disable if there is no file to load
 
 		clearbtn.bind(on_release=self.__clear_canvas)
 		savebtn.bind(on_release=self.__save)

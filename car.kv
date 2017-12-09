@@ -2,7 +2,7 @@
     size: 10,10
     canvas:
         Color:
-            rgba: 1,0,0,1
+            rgba: self.color
         Ellipse:
             pos: self.pos
             size: self.size
@@ -10,14 +10,10 @@
 <Car>:
     size: 20, 10
 
-    Sensor:
-        id: left_sensor
-        pos: self.parent.pos
+    canvas:
+        Color:
+            rgba: self.color
 
-    Sensor:
-        id: middle_sensor
-        pos: self.parent.pos
-
-    Sensor:
-        id: right_sensor
-        pos: self.parent.pos
+        Rectangle:
+            pos: self.pos
+            size: self.size
