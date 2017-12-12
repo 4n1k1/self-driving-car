@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+import numpy
+
 from kivy.app import App
 from kivy.vector import Vector
 from kivy.uix.widget import Widget
@@ -41,9 +43,9 @@ class Car(RelativeLayout):
 
 		self.orientation = self.orientation.rotate(5)
 		self.pos = self.orientation * self.velocity + self.pos
-
+		"""
 		self.left_sensor_signal = int(
-			np.sum(
+			numpy.sum(
 				self.parent.sand[
 					int(self.left_sensor.abs_pos.x) - 10 : int(self.left_sensor.abs_pos.x) + 10,
 					int(self.left_sensor.abs_pos.y) - 10 : int(self.left_sensor.abs_pos.y) + 10,
@@ -51,7 +53,7 @@ class Car(RelativeLayout):
 			)
 		) / 400.
 		self.middle_sensor_signal = int(
-			np.sum(
+			numpy.sum(
 				self.parent.sand[
 					int(self.middle_sensor.abs_pos.x) - 10 : int(self.middle_sensor.abs_pos.x) + 10,
 					int(self.middle_sensor.abs_pos.y) - 10 : int(self.middle_sensor.abs_pos.y) + 10,
@@ -59,14 +61,14 @@ class Car(RelativeLayout):
 			)
 		) / 400.
 		self.right_sensor_signal = int(
-			np.sum(
+			numpy.sum(
 				self.parent.sand[
 					int(self.right_sensor.abs_pos.x) - 10 : int(self.right_sensor.abs_pos.x) + 10,
 					int(self.right_sensor.abs_pos.y) - 10 : int(self.right_sensor.abs_pos.y) + 10,
 				]
 			)
 		) / 400.
-
+		"""
 
 class Center(Widget):
 	pass
