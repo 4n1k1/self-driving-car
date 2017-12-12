@@ -13,7 +13,7 @@ _CARS_COUNT = 2
 
 class Car(RelativeLayout):
 	def __init__(self, car_idx):
-		self.pos = Vector((car_idx + 1) * 400, (car_idx + 1) * 400)
+		self.pos = Vector((car_idx + 1) * 250, (car_idx + 1) * 250)
 		self.velocity = 5 + car_idx * 2
 		self.orientation = Vector(-1, 0)
 		RelativeLayout.__init__(self)
@@ -34,13 +34,38 @@ class Car(RelativeLayout):
 		with self.canvas.before:
 			PushMatrix()
 			r = Rotate()
-			r.angle = 1
+			r.angle = 5
 
 		with self.canvas.after:
 			PopMatrix()
 
-		self.orientation = self.orientation.rotate(1)
+		self.orientation = self.orientation.rotate(5)
 		self.pos = self.orientation * self.velocity + self.pos
+
+		self.left_sensor_signal = int(
+			np.sum(
+				self.parent.sand[
+					int(self.left_sensor.abs_pos.x) - 10 : int(self.left_sensor.abs_pos.x) + 10,
+					int(self.left_sensor.abs_pos.y) - 10 : int(self.left_sensor.abs_pos.y) + 10,
+				]
+			)
+		) / 400.
+		self.middle_sensor_signal = int(
+			np.sum(
+				self.parent.sand[
+					int(self.middle_sensor.abs_pos.x) - 10 : int(self.middle_sensor.abs_pos.x) + 10,
+					int(self.middle_sensor.abs_pos.y) - 10 : int(self.middle_sensor.abs_pos.y) + 10,
+				]
+			)
+		) / 400.
+		self.right_sensor_signal = int(
+			np.sum(
+				self.parent.sand[
+					int(self.right_sensor.abs_pos.x) - 10 : int(self.right_sensor.abs_pos.x) + 10,
+					int(self.right_sensor.abs_pos.y) - 10 : int(self.right_sensor.abs_pos.y) + 10,
+				]
+			)
+		) / 400.
 
 
 class Center(Widget):
