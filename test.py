@@ -13,9 +13,9 @@ _CARS_COUNT = 2
 
 class Car(RelativeLayout):
 	def __init__(self, car_idx):
-		self.pos = Vector((car_idx + 1) * 20, (car_idx + 1) * 20)
-		self.velocity = Vector(car_idx + 1, 0)
-
+		self.pos = Vector((car_idx + 1) * 400, (car_idx + 1) * 400)
+		self.velocity = 5 + car_idx * 2
+		self.orientation = Vector(-1, 0)
 		RelativeLayout.__init__(self)
 
 		self.body = Body(Vector(-5, -5), (1, 1, 1, 1))
@@ -31,19 +31,20 @@ class Car(RelativeLayout):
 		self.add_widget(self.center_mark)
 
 	def move(self):
-		self.pos = self.velocity + self.pos
-
 		with self.canvas.before:
 			PushMatrix()
 			r = Rotate()
-			r.angle = 5
+			r.angle = 1
 
 		with self.canvas.after:
 			PopMatrix()
 
+		self.orientation = self.orientation.rotate(1)
+		self.pos = self.orientation * self.velocity + self.pos
+
 
 class Center(Widget):
-    pass
+	pass
 
 
 class Body(Widget):
