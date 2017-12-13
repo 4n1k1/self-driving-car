@@ -14,6 +14,7 @@ from kivy.core.window import Window
 
 _CARS_COUNT = 2
 _CHECK_POINT_OFFEST = Vector(50, 50)
+_ROTATIONS = (0, 20, -20)
 
 
 class _RGBAColor:
@@ -30,6 +31,11 @@ class Car(RelativeLayout):
 		self.velocity = 5 + car_idx * 2
 		self.direction = Vector(-1, 0)
 		self.destination = Vector(0, 0)
+		self.action = 0
+
+		self.reward = 0.0
+		self.state = (0.0, 0.0, 0.0, 0.0, 0.0)
+		self.scores = []
 
 		RelativeLayout.__init__(self)
 
@@ -46,18 +52,30 @@ class Car(RelativeLayout):
 		self.add_widget(self.center_mark)
 
 	def move(self):
+		angle_of_rotation = _ROTATIONS[self.action]
+
 		with self.canvas.before:
 			PushMatrix()
 			r = Rotate()
-			r.angle = 5
+			r.angle = _ROTATIONS[angle_of_rotation]
 
 		with self.canvas.after:
 			PopMatrix()
 
-		self.orientation = self.direction.angle(self.destination)/180.0
-		self.direction = self.direction.rotate(5)
+		self.direction = self.direction.rotate(angle_of_rotation)
 		self.pos = self.direction * self.velocity + self.pos
 
+		self.brain.update(
+			self._get_reward(),
+			self._get_state(),
+		)
+
+		self.action = self.brain.pick_action()
+
+		self.scores.append(self.brain.score())
+
+	def _get_state(self):
+		self.orientation = self.direction.angle(self.destination)/180.0
 		self.left_sensor_signal = int(
 			numpy.sum(
 				self.parent.sand[
@@ -65,7 +83,7 @@ class Car(RelativeLayout):
 					int(self.left_sensor.abs_pos.y) - 10 : int(self.left_sensor.abs_pos.y) + 10,
 				]
 			)
-		) / 400.
+		) / 400.0
 		self.middle_sensor_signal = int(
 			numpy.sum(
 				self.parent.sand[
@@ -73,7 +91,7 @@ class Car(RelativeLayout):
 					int(self.middle_sensor.abs_pos.y) - 10 : int(self.middle_sensor.abs_pos.y) + 10,
 				]
 			)
-		) / 400.
+		) / 400.0
 		self.right_sensor_signal = int(
 			numpy.sum(
 				self.parent.sand[
@@ -81,7 +99,54 @@ class Car(RelativeLayout):
 					int(self.right_sensor.abs_pos.y) - 10 : int(self.right_sensor.abs_pos.y) + 10,
 				]
 			)
-		) / 400.
+		) / 400.0
+
+		return (
+			self.left_sensor_signal,
+			self.middle_sensor_signal,
+			self.right_sensor_signal,
+			self.orientation,
+			-self.orientation,
+		)
+
+	def _get_reward(self):
+		current_position = Vector(*self.pos[:2])
+
+		distance = numpy.sqrt((self.pos.x - goal_x)**2 + (self.car.y - goal_y)**2)
+
+		self.ball1.pos = self.car.sensor1
+		self.ball2.pos = self.car.sensor2
+		self.ball3.pos = self.car.sensor3
+
+		if sand[int(self.car.x),int(self.car.y)] > 0:
+			self.car.velocity = Vector(1, 0).rotate(self.car.angle)
+			last_reward = -0.5
+		else:
+			self.car.velocity = Vector(6, 0).rotate(self.car.angle)
+			last_reward = -0.2
+			if distance < last_distance:
+				last_reward = 0.1
+
+		if self.car.x < 10:
+			self.car.x = 10
+			last_reward = -1
+		if self.car.x > self.width - 10:
+			self.car.x = self.width - 10
+			last_reward = -1
+		if self.car.y < 10:
+			self.car.y = 10
+			last_reward = -1
+		if self.car.y > self.height - 10:
+			self.car.y = self.height - 10
+			last_reward = -1
+
+		if distance < 100:
+			goal_x = self.width-goal_x
+			goal_y = self.height-goal_y
+
+		last_distance = distance
+
+		return last_reward
 
 
 class Center(Widget):
