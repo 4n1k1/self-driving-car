@@ -12,10 +12,10 @@ from kivy.graphics.context_instructions import PushMatrix, PopMatrix, Rotate, Tr
 from kivy.clock import Clock
 from kivy.core.window import Window
 
+from ai import Brain
+
 _CARS_COUNT = 2
 _CHECK_POINT_OFFEST = Vector(50, 50)
-_ROTATIONS = (0, 20, -20)
-
 
 class _RGBAColor:
 	RED = (1, 0, 0, 1)
@@ -25,19 +25,34 @@ class _RGBAColor:
 	GREY = (0.5, 0.5, 0.5, 1)
 
 
-class Car(RelativeLayout):
-	def __init__(self, car_idx):
+class PositionMixin:
+	@property
+	def position(self):
+		return Vector(*self.pos[:2])
+
+
+class Car(RelativeLayout, PositionMixin):
+	_ROTATIONS = (0, 20, -20)
+
+	def __init__(self, car_idx, map_widget):
+		self.idx = car_idx
 		self.pos = Vector((car_idx + 1) * 250, (car_idx + 1) * 250)
 		self.velocity = 5 + car_idx * 2
-		self.direction = Vector(-1, 0)
-		self.destination = Vector(0, 0)
 		self.action = 0
-
+		self.direction = Vector(1, 0)
 		self.reward = 0.0
-		self.state = (0.0, 0.0, 0.0, 0.0, 0.0)
+		self.state = (0, 0, 0, 0, 0)
 		self.scores = []
 
+		self.brain = Brain(
+			len(self.state),
+			len(self._ROTATIONS),
+		)
+
 		RelativeLayout.__init__(self)
+
+		self.destination = map_widget.airport
+		self.distance = self.position.distance(self.destination.position)
 
 		self.body = Body(Vector(-5, -5), _RGBAColor.WHITE)
 		self.middle_sensor = Sensor(Vector(-20, -5), _RGBAColor.RED)
@@ -52,12 +67,12 @@ class Car(RelativeLayout):
 		self.add_widget(self.center_mark)
 
 	def move(self):
-		angle_of_rotation = _ROTATIONS[self.action]
+		angle_of_rotation = self._ROTATIONS[self.action]
 
 		with self.canvas.before:
 			PushMatrix()
 			r = Rotate()
-			r.angle = _ROTATIONS[angle_of_rotation]
+			r.angle = angle_of_rotation
 
 		with self.canvas.after:
 			PopMatrix()
@@ -65,17 +80,15 @@ class Car(RelativeLayout):
 		self.direction = self.direction.rotate(angle_of_rotation)
 		self.pos = self.direction * self.velocity + self.pos
 
-		self.brain.update(
+		self.action = self.brain.update(
 			self._get_reward(),
 			self._get_state(),
 		)
 
-		self.action = self.brain.pick_action()
-
 		self.scores.append(self.brain.score())
 
 	def _get_state(self):
-		self.orientation = self.direction.angle(self.destination)/180.0
+		self.orientation = self.direction.angle(self.destination.position)/180.
 		self.left_sensor_signal = int(
 			numpy.sum(
 				self.parent.sand[
@@ -83,7 +96,7 @@ class Car(RelativeLayout):
 					int(self.left_sensor.abs_pos.y) - 10 : int(self.left_sensor.abs_pos.y) + 10,
 				]
 			)
-		) / 400.0
+		) / 400.
 		self.middle_sensor_signal = int(
 			numpy.sum(
 				self.parent.sand[
@@ -91,7 +104,7 @@ class Car(RelativeLayout):
 					int(self.middle_sensor.abs_pos.y) - 10 : int(self.middle_sensor.abs_pos.y) + 10,
 				]
 			)
-		) / 400.0
+		) / 400.
 		self.right_sensor_signal = int(
 			numpy.sum(
 				self.parent.sand[
@@ -99,7 +112,7 @@ class Car(RelativeLayout):
 					int(self.right_sensor.abs_pos.y) - 10 : int(self.right_sensor.abs_pos.y) + 10,
 				]
 			)
-		) / 400.0
+		) / 400.
 
 		return (
 			self.left_sensor_signal,
@@ -110,50 +123,48 @@ class Car(RelativeLayout):
 		)
 
 	def _get_reward(self):
-		current_position = Vector(*self.pos[:2])
+		reward = 0
 
-		distance = numpy.sqrt((self.pos.x - goal_x)**2 + (self.car.y - goal_y)**2)
+		distance = self.position.distance(self.destination.position)
 
-		self.ball1.pos = self.car.sensor1
-		self.ball2.pos = self.car.sensor2
-		self.ball3.pos = self.car.sensor3
-
-		if sand[int(self.car.x),int(self.car.y)] > 0:
-			self.car.velocity = Vector(1, 0).rotate(self.car.angle)
-			last_reward = -0.5
+		if self.parent.sand[int(self.position.x), int(self.position.y)] > 0:
+			self.velocity = 1 + self.idx * 2
+			reward = -0.5
 		else:
-			self.car.velocity = Vector(6, 0).rotate(self.car.angle)
-			last_reward = -0.2
-			if distance < last_distance:
-				last_reward = 0.1
+			self.velocity = 5 + self.idx * 2
+			reward = -0.2
+			if distance < self.distance:
+				reward = 0.1
 
-		if self.car.x < 10:
-			self.car.x = 10
-			last_reward = -1
-		if self.car.x > self.width - 10:
-			self.car.x = self.width - 10
-			last_reward = -1
-		if self.car.y < 10:
-			self.car.y = 10
-			last_reward = -1
-		if self.car.y > self.height - 10:
-			self.car.y = self.height - 10
-			last_reward = -1
+		if self.position.x < 0:
+			self.pos[0] = 10
+			reward = -1
+		if self.position.x > self.parent.width:
+			self.pos[0] = self.parent.width
+			reward = -1
+		if self.position.y < 0:
+			self.pos[1] = 0
+			reward = -1
+		if self.position.y > self.parent.width:
+			self.pos[1] = self.parent.width
+			reward = -1
 
-		if distance < 100:
-			goal_x = self.width-goal_x
-			goal_y = self.height-goal_y
+		if distance < 50:
+			if isinstance(self.destination, Airport):
+				self.destination = self.parent.downtown
+			else:
+				self.destination = self.parent.airport
 
-		last_distance = distance
+		self.distance = distance
 
-		return last_reward
+		return reward
 
 
-class Center(Widget):
+class Center(Widget, PositionMixin):
 	pass
 
 
-class DeparturePoint(Widget):
+class Downtown(Widget, PositionMixin):
 	def __init__(self):
 		Widget.__init__(self)
 
@@ -165,7 +176,7 @@ class DeparturePoint(Widget):
 			Rectangle(pos=self.pos, size=self.size)
 
 
-class Destination(Widget):
+class Airport(Widget, PositionMixin):
 	def __init__(self):
 		Widget.__init__(self)
 
@@ -177,7 +188,7 @@ class Destination(Widget):
 			Rectangle(pos=self.pos, size=self.size)
 
 
-class Body(Widget):
+class Body(Widget, PositionMixin):
 	def __init__(self, pos, color):
 		self.color = color
 		self.pos = pos
@@ -240,6 +251,9 @@ class Map(Widget):
 		self.size = Window.size
 		self.pos = (0, 0)
 
+		self.airport = Airport()
+		self.downtown = Downtown()
+
 		Widget.__init__(self)
 
 		self.sand = numpy.zeros(
@@ -247,12 +261,13 @@ class Map(Widget):
 		)
 
 	def build(self, cars_count):
-		self.add_widget(DeparturePoint())
-		self.add_widget(Destination())
+		self.add_widget(self.airport)
+		self.add_widget(self.downtown)
+
 		self.add_widget(Painter())
 
 		for i in range(0, cars_count):
-			car = Car(i)
+			car = Car(i, self)
 
 			self.cars.append(car)
 			self.add_widget(car)

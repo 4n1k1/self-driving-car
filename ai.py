@@ -76,9 +76,10 @@ class Brain:
 	"""
 	Deep Q Learning brain implemenation.
 	"""
+	_DISCOUNT_FACTOR = 0.9
 
-	def __init__(self, input_size, output_size, discount_factor):
-		self.__gamma = discount_factor
+	def __init__(self, input_size, output_size):
+		self.__gamma = self._DISCOUNT_FACTOR
 		self.__last_rewards = []  # is used for plotting
 		self.__module = _DrivingModule(input_size, output_size)
 		self.__memory = _ShortTermMemory(100000)
@@ -130,7 +131,7 @@ class Brain:
 		action = self.__select_action(new_state)
 
 		if self.__memory.size > 100:
-			self.__learn(self.__memory.recall(100))
+			self.__learn(*self.__memory.recall(100))
 
 		self.__last_action = action
 		self.__last_state = new_state
