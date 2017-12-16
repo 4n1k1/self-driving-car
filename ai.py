@@ -130,8 +130,8 @@ class Brain:
 		)
 		action = self.__select_action(new_state)
 
-		if self.__memory.size > 100:
-			self.__learn(*self.__memory.recall(100))
+		if self.__memory.size > 500:
+			self.__learn(*self.__memory.recall(500))
 
 		self.__last_action = action
 		self.__last_state = new_state

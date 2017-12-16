@@ -4,6 +4,7 @@ import numpy
 
 from kivy.app import App
 from kivy.vector import Vector
+from kivy.uix.button import Button
 from kivy.uix.widget import Widget
 from kivy.uix.relativelayout import RelativeLayout
 from kivy.uix.floatlayout import FloatLayout
@@ -13,8 +14,9 @@ from kivy.clock import Clock
 from kivy.core.window import Window
 
 from ai import Brain
+from matplotlib import pyplot
 
-_CARS_COUNT = 1
+_CARS_COUNT = 2
 _CHECK_POINT_OFFEST = Vector(50, 50)
 
 class _RGBAColor:
@@ -24,6 +26,14 @@ class _RGBAColor:
 	WHITE = (1, 1, 1, 1)
 	GREY = (0.5, 0.5, 0.5, 1)
 
+_IDX_TO_COLOR = {
+	0: _RGBAColor.RED,
+	1: _RGBAColor.GREEN,
+	2: _RGBAColor.BLUE,
+	3: _RGBAColor.WHITE,
+	4: _RGBAColor.GREY,
+}
+
 
 class PositionMixin:
 	@property
@@ -32,7 +42,7 @@ class PositionMixin:
 
 
 class Car(RelativeLayout, PositionMixin):
-	_ROTATIONS = (0, 20, -20)
+	_ROTATIONS = (0, 30, -30, -90)
 
 	def __init__(self, car_idx, map_widget):
 		self.idx = car_idx
@@ -54,7 +64,7 @@ class Car(RelativeLayout, PositionMixin):
 		self.destination = map_widget.airport
 		self.distance = self.position.distance(self.destination.position)
 
-		self.body = Body(Vector(-5, -5), _RGBAColor.WHITE)
+		self.body = Body(Vector(-5, -5), _IDX_TO_COLOR[self.idx])
 		self.middle_sensor = Sensor(Vector(-20, -5), _RGBAColor.RED)
 		self.right_sensor = Sensor(Vector(-12, 10), _RGBAColor.GREEN)
 		self.left_sensor = Sensor(Vector(-12, -20), _RGBAColor.BLUE)
@@ -134,31 +144,35 @@ class Car(RelativeLayout, PositionMixin):
 		)
 
 	def _get_reward(self, distance):
+		reward = 0.0
+
 		if self.position.x < 10:
 			self.pos = (10, self.pos[1])
-			return -1.0
+			reward = -1.0
 
 		if self.position.x > self.parent.width - 10:
 			self.pos = (self.parent.width - 10, self.pos[1])
-			return -1.0
+			reward = -1.0
 
 		if self.position.y < 10:
 			self.pos = (self.pos[0], 10)
-			return -1.0
+			reward = -1.0
 
 		if self.position.y > self.parent.height - 10:
 			self.pos = (self.pos[0], self.parent.height - 10)
-			return -1.0
+			reward = -1.0
 
 		if self.parent.sand[int(self.position.x), int(self.position.y)] > 0:
 			self.velocity = 1 + self.idx * 2
-			return -0.5
+			reward = -0.5
 		else:
 			self.velocity = 5 + self.idx * 2
 			if distance < self.distance:
-				return 0.1
+				reward = 0.1
 			else:
-				return -0.2
+				reward = -0.2
+
+		return reward
 
 
 class Center(Widget, PositionMixin):
@@ -255,6 +269,12 @@ class Map(Widget):
 		self.airport = Airport()
 		self.downtown = Downtown()
 
+		self.__plot_button = Button(
+			text='plot',
+			pos=(Window.width - 200, 50),
+			size=(100, 50),
+		)
+
 		Widget.__init__(self)
 
 		self.sand = numpy.zeros(
@@ -264,6 +284,7 @@ class Map(Widget):
 	def build(self, cars_count):
 		self.add_widget(self.airport)
 		self.add_widget(self.downtown)
+		self.add_widget(self.__plot_button)
 
 		self.add_widget(Painter())
 
@@ -273,10 +294,17 @@ class Map(Widget):
 			self.cars.append(car)
 			self.add_widget(car)
 
+		self.__plot_button.bind(on_release=self.__plot_learning_process)
+
 	def update(self, dt):
 		for car in self.cars:
 			car.move()
 
+	def __plot_learning_process(self, plot_button):
+		for idx, car in enumerate(self.cars):
+			pyplot.plot(car.scores, color=car.body.color)
+
+		pyplot.show()
 
 class CarApp(App):
 	def __init__(self):
