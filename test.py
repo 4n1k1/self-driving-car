@@ -14,7 +14,7 @@ from kivy.core.window import Window
 
 from ai import Brain
 
-_CARS_COUNT = 2
+_CARS_COUNT = 1
 _CHECK_POINT_OFFEST = Vector(50, 50)
 
 class _RGBAColor:
@@ -39,7 +39,7 @@ class Car(RelativeLayout, PositionMixin):
 		self.pos = Vector((car_idx + 1) * 250, (car_idx + 1) * 250)
 		self.velocity = 5 + car_idx * 2
 		self.action = 0
-		self.direction = Vector(1, 0)
+		self.direction = Vector(-1, 0)
 		self.reward = 0.0
 		self.state = (0, 0, 0, 0, 0)
 		self.scores = []
@@ -80,12 +80,23 @@ class Car(RelativeLayout, PositionMixin):
 		self.direction = self.direction.rotate(angle_of_rotation)
 		self.pos = self.direction * self.velocity + self.pos
 
+		distance = self.position.distance(self.destination.position)
+
 		self.action = self.brain.update(
-			self._get_reward(),
+			self._get_reward(distance),
 			self._get_state(),
 		)
 
+		self.distance = distance
+
+		if self.distance < 50:
+			if isinstance(self.destination, Airport):
+				self.destination = self.parent.downtown
+			else:
+				self.destination = self.parent.airport
+
 		self.scores.append(self.brain.score())
+
 
 	def _get_state(self):
 		self.orientation = self.direction.angle(self.destination.position)/180.
@@ -122,42 +133,32 @@ class Car(RelativeLayout, PositionMixin):
 			-self.orientation,
 		)
 
-	def _get_reward(self):
-		reward = 0
+	def _get_reward(self, distance):
+		if self.position.x < 10:
+			self.pos = (10, self.pos[1])
+			return -1.0
 
-		distance = self.position.distance(self.destination.position)
+		if self.position.x > self.parent.width - 10:
+			self.pos = (self.parent.width - 10, self.pos[1])
+			return -1.0
+
+		if self.position.y < 10:
+			self.pos = (self.pos[0], 10)
+			return -1.0
+
+		if self.position.y > self.parent.height - 10:
+			self.pos = (self.pos[0], self.parent.height - 10)
+			return -1.0
 
 		if self.parent.sand[int(self.position.x), int(self.position.y)] > 0:
 			self.velocity = 1 + self.idx * 2
-			reward = -0.5
+			return -0.5
 		else:
 			self.velocity = 5 + self.idx * 2
-			reward = -0.2
 			if distance < self.distance:
-				reward = 0.1
-
-		if self.position.x < 0:
-			self.pos[0] = 10
-			reward = -1
-		if self.position.x > self.parent.width:
-			self.pos[0] = self.parent.width
-			reward = -1
-		if self.position.y < 0:
-			self.pos[1] = 0
-			reward = -1
-		if self.position.y > self.parent.width:
-			self.pos[1] = self.parent.width
-			reward = -1
-
-		if distance < 50:
-			if isinstance(self.destination, Airport):
-				self.destination = self.parent.downtown
+				return 0.1
 			else:
-				self.destination = self.parent.airport
-
-		self.distance = distance
-
-		return reward
+				return -0.2
 
 
 class Center(Widget, PositionMixin):

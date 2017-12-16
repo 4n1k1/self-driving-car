@@ -41,7 +41,7 @@ class _DrivingModule(nn.Module):
 		"""
 
 		return self.__hidden_to_output_connections(
-			nn.functional.relu(  # rectifier lower to upper
+			nn.functional.relu(  # rectifier linear units
 				self.__input_to_hidden_connections(state),
 			),
 		)
@@ -124,8 +124,8 @@ class Brain:
 			(
 				self.__last_state,
 				new_state,
+				torch.Tensor([self.__last_reward]),
 				torch.LongTensor([int(self.__last_action)]),
-				torch.Tensor([self.__last_reward])
 			)
 		)
 		action = self.__select_action(new_state)
