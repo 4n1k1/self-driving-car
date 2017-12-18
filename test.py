@@ -16,8 +16,9 @@ from kivy.core.window import Window
 from ai import Brain
 from matplotlib import pyplot
 
-_CARS_COUNT = 2
+_CARS_COUNT = 1
 _CHECK_POINT_OFFEST = Vector(50, 50)
+_PADDING = 100
 
 class _RGBAColor:
 	RED = (1, 0, 0, 1)
@@ -47,7 +48,9 @@ class Car(RelativeLayout, PositionMixin):
 	def __init__(self, car_idx, map_widget):
 		self.idx = car_idx
 		self.pos = Vector((car_idx + 1) * 250, (car_idx + 1) * 250)
-		self.velocity = 5 + car_idx * 2
+		self.sand_speed = _PADDING / 5 - 5 + car_idx
+		self.full_speed = _PADDING / 5 + car_idx
+		self.velocity = self.full_speed
 		self.action = 0
 		self.direction = Vector(-1, 0)
 		self.reward = 0.0
@@ -99,7 +102,7 @@ class Car(RelativeLayout, PositionMixin):
 
 		self.distance = distance
 
-		if self.distance < 50:
+		if self.distance < _PADDING:
 			if isinstance(self.destination, Airport):
 				self.destination = self.parent.downtown
 			else:
@@ -113,24 +116,24 @@ class Car(RelativeLayout, PositionMixin):
 		self.left_sensor_signal = int(
 			numpy.sum(
 				self.parent.sand[
-					int(self.left_sensor.abs_pos.x) - 10 : int(self.left_sensor.abs_pos.x) + 10,
-					int(self.left_sensor.abs_pos.y) - 10 : int(self.left_sensor.abs_pos.y) + 10,
+					int(self.left_sensor.abs_pos.x) - _PADDING : int(self.left_sensor.abs_pos.x) + _PADDING,
+					int(self.left_sensor.abs_pos.y) - _PADDING : int(self.left_sensor.abs_pos.y) + _PADDING,
 				]
 			)
 		) / 400.
 		self.middle_sensor_signal = int(
 			numpy.sum(
 				self.parent.sand[
-					int(self.middle_sensor.abs_pos.x) - 10 : int(self.middle_sensor.abs_pos.x) + 10,
-					int(self.middle_sensor.abs_pos.y) - 10 : int(self.middle_sensor.abs_pos.y) + 10,
+					int(self.middle_sensor.abs_pos.x) - _PADDING : int(self.middle_sensor.abs_pos.x) + _PADDING,
+					int(self.middle_sensor.abs_pos.y) - _PADDING : int(self.middle_sensor.abs_pos.y) + _PADDING,
 				]
 			)
 		) / 400.
 		self.right_sensor_signal = int(
 			numpy.sum(
 				self.parent.sand[
-					int(self.right_sensor.abs_pos.x) - 10 : int(self.right_sensor.abs_pos.x) + 10,
-					int(self.right_sensor.abs_pos.y) - 10 : int(self.right_sensor.abs_pos.y) + 10,
+					int(self.right_sensor.abs_pos.x) - _PADDING : int(self.right_sensor.abs_pos.x) + _PADDING,
+					int(self.right_sensor.abs_pos.y) - _PADDING : int(self.right_sensor.abs_pos.y) + _PADDING,
 				]
 			)
 		) / 400.
@@ -146,31 +149,31 @@ class Car(RelativeLayout, PositionMixin):
 	def _get_reward(self, distance):
 		reward = 0.0
 
-		if self.position.x < 10:
-			self.pos = (10, self.pos[1])
-			reward = -1.0
-
-		if self.position.x > self.parent.width - 10:
-			self.pos = (self.parent.width - 10, self.pos[1])
-			reward = -1.0
-
-		if self.position.y < 10:
-			self.pos = (self.pos[0], 10)
-			reward = -1.0
-
-		if self.position.y > self.parent.height - 10:
-			self.pos = (self.pos[0], self.parent.height - 10)
-			reward = -1.0
-
 		if self.parent.sand[int(self.position.x), int(self.position.y)] > 0:
-			self.velocity = 1 + self.idx * 2
+			self.velocity = self.sand_speed
 			reward = -0.5
 		else:
-			self.velocity = 5 + self.idx * 2
+			self.velocity = self.full_speed
 			if distance < self.distance:
 				reward = 0.1
 			else:
 				reward = -0.2
+
+		if self.position.x < _PADDING:
+			self.pos = (_PADDING, self.pos[1])
+			reward = -1.0
+
+		if self.position.x > self.parent.width - _PADDING:
+			self.pos = (self.parent.width - _PADDING, self.pos[1])
+			reward = -1.0
+
+		if self.position.y < _PADDING:
+			self.pos = (self.pos[0], _PADDING)
+			reward = -1.0
+
+		if self.position.y > self.parent.height - _PADDING:
+			self.pos = (self.pos[0], self.parent.height - _PADDING)
+			reward = -1.0
 
 		return reward
 
@@ -255,7 +258,7 @@ class Painter(Widget):
 	def on_touch_down(self, touch):
 		with self.canvas:
 			Color(0.8,0.7,0)
-			touch.ud['line'] = Line(points = (touch.x, touch.y), width = 10)
+			touch.ud['line'] = Line(points = (touch.x, touch.y), width = _PADDING)
 
 			self.__last_x = int(touch.x)
 			self.__last_y = int(touch.y)
@@ -271,7 +274,7 @@ class Painter(Widget):
 			self.__n_points += 1.
 			density = self.__n_points/(self.__length)
 			touch.ud['line'].width = int(20 * density + 1)
-			self.parent.sand[int(touch.x) - 10 : int(touch.x) + 10, int(touch.y) - 10 : int(touch.y) + 10] = 1
+			self.parent.sand[int(touch.x) - _PADDING : int(touch.x) + _PADDING, int(touch.y) - _PADDING : int(touch.y) + _PADDING] = 1
 			self.__last_x = touch.x
 			self.__last_y = touch.y
 
@@ -288,7 +291,7 @@ class Map(Widget):
 
 		self.__plot_button = Button(
 			text='plot',
-			pos=(Window.width - 200, 50),
+			pos=(Window.width - 150, 50),
 			size=(100, 50),
 		)
 
@@ -332,7 +335,7 @@ class CarApp(App):
 	def build(self):
 		self.__map.build(_CARS_COUNT)
 
-		Clock.schedule_interval(self.__map.update, 1.0/60.0)
+		Clock.schedule_interval(self.__map.update, 1.0/30.0)
 
 		return self.__map
 
