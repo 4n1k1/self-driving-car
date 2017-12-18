@@ -8,7 +8,7 @@ from kivy.uix.button import Button
 from kivy.uix.widget import Widget
 from kivy.uix.relativelayout import RelativeLayout
 from kivy.uix.floatlayout import FloatLayout
-from kivy.graphics import Color, Rectangle, Line
+from kivy.graphics import Color, Rectangle, Line, Ellipse
 from kivy.graphics.context_instructions import PushMatrix, PopMatrix, Rotate, Translate
 from kivy.clock import Clock
 from kivy.core.window import Window
@@ -42,7 +42,7 @@ class PositionMixin:
 
 
 class Car(RelativeLayout, PositionMixin):
-	_ROTATIONS = (0, 30, -30, -90)
+	_ROTATIONS = (0, 30, -30)
 
 	def __init__(self, car_idx, map_widget):
 		self.idx = car_idx
@@ -175,16 +175,24 @@ class Car(RelativeLayout, PositionMixin):
 		return reward
 
 
-class Center(Widget, PositionMixin):
-	pass
+class Center(Widget):
+	def __init__(self):
+		Widget.__init__(self)
+
+		self.pos = (0, 0)
+		self.size = (1, 1)
+
+		with self.canvas:
+			Color(rgba=_RGBAColor.GREY)
+			Ellipse(pos=self.pos, size=self.size)
 
 
 class Downtown(Widget, PositionMixin):
 	def __init__(self):
-		Widget.__init__(self)
-
 		self.pos = Vector(*_CHECK_POINT_OFFEST)
 		self.size = (20, 20)
+
+		Widget.__init__(self)
 
 		with self.canvas:
 			Color(rgba=_RGBAColor.GREY)
@@ -193,10 +201,10 @@ class Downtown(Widget, PositionMixin):
 
 class Airport(Widget, PositionMixin):
 	def __init__(self):
-		Widget.__init__(self)
-
 		self.pos = Vector(*Window.size) - Vector(*_CHECK_POINT_OFFEST)
 		self.size = (20, 20)
+
+		Widget.__init__(self)
 
 		with self.canvas:
 			Color(rgba=_RGBAColor.GREY)
@@ -207,17 +215,26 @@ class Body(Widget, PositionMixin):
 	def __init__(self, pos, color):
 		self.color = color
 		self.pos = pos
+		self.size = (20, 10)
 
 		Widget.__init__(self)
 
+		with self.canvas:
+			Color(rgba=color)
+			Rectangle(pos=self.pos, size=self.size)
 
 
 class Sensor(Widget):
 	def __init__(self, pos, color):
 		self.color = color
 		self.pos = pos
+		self.size = (10, 10)
 
 		Widget.__init__(self)
+
+		with self.canvas:
+			Color(rgba=color)
+			Ellipse(pos=self.pos, size=self.size)
 
 	@property
 	def abs_pos(self):
