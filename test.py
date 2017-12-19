@@ -16,9 +16,9 @@ from kivy.core.window import Window
 from ai import Brain
 from matplotlib import pyplot
 
-_CARS_COUNT = 1
+_CARS_COUNT = 3
 _CHECK_POINT_OFFEST = Vector(50, 50)
-_PADDING = 100
+_PADDING = 20
 
 class _RGBAColor:
 	RED = (1, 0, 0, 1)
@@ -43,13 +43,13 @@ class PositionMixin:
 
 
 class Car(RelativeLayout, PositionMixin):
-	_ROTATIONS = (0, 30, -30)
+	_ROTATIONS = (0, 20, -20)
 
 	def __init__(self, car_idx, map_widget):
 		self.idx = car_idx
 		self.pos = Vector((car_idx + 1) * 250, (car_idx + 1) * 250)
-		self.sand_speed = _PADDING / 5 - 5 + car_idx
-		self.full_speed = _PADDING / 5 + car_idx
+		self.sand_speed = _PADDING / 1.5 - 5 + car_idx
+		self.full_speed = _PADDING / 1.5 + car_idx
 		self.velocity = self.full_speed
 		self.action = 0
 		self.direction = Vector(-1, 0)
@@ -112,8 +112,8 @@ class Car(RelativeLayout, PositionMixin):
 
 
 	def _get_state(self):
-		self.orientation = self.direction.angle(self.destination.position)/180.
-		self.left_sensor_signal = int(
+		self.orientation = self.direction.angle(self.destination.position - self.position)/180.
+		self.left_sensor.signal = int(
 			numpy.sum(
 				self.parent.sand[
 					int(self.left_sensor.abs_pos.x) - _PADDING : int(self.left_sensor.abs_pos.x) + _PADDING,
@@ -121,7 +121,7 @@ class Car(RelativeLayout, PositionMixin):
 				]
 			)
 		) / 400.
-		self.middle_sensor_signal = int(
+		self.middle_sensor.signal = int(
 			numpy.sum(
 				self.parent.sand[
 					int(self.middle_sensor.abs_pos.x) - _PADDING : int(self.middle_sensor.abs_pos.x) + _PADDING,
@@ -129,7 +129,7 @@ class Car(RelativeLayout, PositionMixin):
 				]
 			)
 		) / 400.
-		self.right_sensor_signal = int(
+		self.right_sensor.signal = int(
 			numpy.sum(
 				self.parent.sand[
 					int(self.right_sensor.abs_pos.x) - _PADDING : int(self.right_sensor.abs_pos.x) + _PADDING,
@@ -138,13 +138,26 @@ class Car(RelativeLayout, PositionMixin):
 			)
 		) / 400.
 
+		self._set_collision_signal_value(self.left_sensor)
+		self._set_collision_signal_value(self.right_sensor)
+		self._set_collision_signal_value(self.middle_sensor)
+
 		return (
-			self.left_sensor_signal,
-			self.middle_sensor_signal,
-			self.right_sensor_signal,
+			self.left_sensor.signal,
+			self.middle_sensor.signal,
+			self.right_sensor.signal,
 			self.orientation,
 			-self.orientation,
 		)
+
+	def _set_collision_signal_value(self, sensor):
+		if (
+			sensor.position.x > self.parent.width - _PADDING or
+			sensor.position.x < _PADDING or
+			sensor.position.y > self.parent.height - _PADDING or
+			sensor.position.y < _PADDING
+		):
+			sensor.signal = 1.
 
 	def _get_reward(self, distance):
 		reward = 0.0
@@ -157,7 +170,7 @@ class Car(RelativeLayout, PositionMixin):
 			if distance < self.distance:
 				reward = 0.1
 			else:
-				reward = -0.2
+				reward = -0.3
 
 		if self.position.x < _PADDING:
 			self.pos = (_PADDING, self.pos[1])
@@ -227,11 +240,12 @@ class Body(Widget, PositionMixin):
 			Rectangle(pos=self.pos, size=self.size)
 
 
-class Sensor(Widget):
+class Sensor(Widget, PositionMixin):
 	def __init__(self, pos, color):
 		self.color = color
 		self.pos = pos
 		self.size = (10, 10)
+		self.signal = 0.
 
 		Widget.__init__(self)
 
