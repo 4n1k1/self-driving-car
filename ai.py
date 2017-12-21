@@ -14,6 +14,8 @@ _HIDDEN_LAYER_NEURONS_COUNT = 30  # this is something to experiment with
 	This basically speeds up learning by increasing chance of high values to be picked.
 """
 _SCALE_FACTOR = 100
+_LEARNING_PERIOD = 500
+
 
 class _DrivingModule(nn.Module):
 	"""
@@ -103,6 +105,7 @@ class Brain:
 		self.__last_state = torch.Tensor(input_size).unsqueeze(0)
 		self.__last_action = 0
 		self.__last_reward = 0
+		self.__current_tick_num = 0
 
 	def __select_action(self, state):
 		return nn.functional.softmax(
@@ -119,6 +122,8 @@ class Brain:
 		self.__optimizer.step()  # update the weights
 
 	def update(self, reward, new_signal):
+		self.__current_tick_num += 1
+
 		new_state = torch.Tensor(new_signal).float().unsqueeze(0)
 		self.__memory.remember(
 			(
@@ -130,8 +135,9 @@ class Brain:
 		)
 		action = self.__select_action(new_state)
 
-		if self.__memory.size > 100:
-			self.__learn(*self.__memory.recall(100))
+		if self.__current_tick_num > _LEARNING_PERIOD:
+			self.__learn(*self.__memory.recall(_LEARNING_PERIOD))
+			self.__current_tick_num = 0
 
 		self.__last_action = action
 		self.__last_state = new_state

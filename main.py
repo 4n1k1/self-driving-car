@@ -79,18 +79,18 @@ class Car(RelativeLayout, PositionMixin):
 		self.add_widget(self.left_sensor)
 		self.add_widget(self.center_mark)
 
-	def move(self):
-		angle_of_rotation = self._ROTATIONS[self.action]
-
 		with self.canvas.before:
 			PushMatrix()
-			r = Rotate()
-			r.angle = angle_of_rotation
+			self.rotation = Rotate()
 
 		with self.canvas.after:
 			PopMatrix()
 
+	def move(self):
+		angle_of_rotation = self._ROTATIONS[self.action]
+		self.rotation.angle += angle_of_rotation
 		self.direction = self.direction.rotate(angle_of_rotation)
+
 		self.pos = self.direction * self.velocity + self.pos
 
 		distance = self.position.distance(self.destination.position)
@@ -99,7 +99,6 @@ class Car(RelativeLayout, PositionMixin):
 			self._get_reward(distance),
 			self._get_state(),
 		)
-
 		self.distance = distance
 
 		if self.distance < _PADDING:
@@ -110,6 +109,8 @@ class Car(RelativeLayout, PositionMixin):
 
 		self.scores.append(self.brain.score())
 
+		if len(self.scores) > 1000:
+			del self.scores[0]
 
 	def _get_state(self):
 		self.orientation = self.direction.angle(self.destination.position - self.position)/180.
