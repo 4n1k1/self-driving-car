@@ -14,7 +14,8 @@ _HIDDEN_LAYER_NEURONS_COUNT = 30  # this is something to experiment with
 	This basically speeds up learning by increasing chance of high values to be picked.
 """
 _SCALE_FACTOR = 100
-_LEARNING_PERIOD = 500
+_LEARNING_PERIOD = 1
+_LEARNING_BATCH_SIZE = 200
 
 
 class _DrivingModule(nn.Module):
@@ -65,7 +66,7 @@ class _ShortTermMemory:
 
 	def recall(self, batch_size):
 		# uniform distribution is probably better than random samples
-		# what zip does: ((1,2), (3,4), (5,6)) => ((1,3,5), (2,4,6))
+		# what zip does: (1,2), (3,4), (5,6) => (1,3,5), (2,4,6)
 		samples = zip(*random.sample(self.__data, batch_size))
 		return map(lambda x: autograd.Variable(torch.cat(x, 0)), samples)
 
@@ -135,8 +136,11 @@ class Brain:
 		)
 		action = self.__select_action(new_state)
 
-		if self.__current_tick_num > _LEARNING_PERIOD:
-			self.__learn(*self.__memory.recall(_LEARNING_PERIOD))
+		if (
+			self.__current_tick_num > _LEARNING_PERIOD and
+			self.__memory.size > _LEARNING_BATCH_SIZE
+		):
+			self.__learn(*self.__memory.recall(_LEARNING_BATCH_SIZE))
 			self.__current_tick_num = 0
 
 		self.__last_action = action

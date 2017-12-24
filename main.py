@@ -16,9 +16,11 @@ from kivy.core.window import Window
 from ai import Brain
 from matplotlib import pyplot
 
-_CARS_COUNT = 3
+_CARS_COUNT = 1
 _CHECK_POINT_OFFEST = Vector(50, 50)
-_PADDING = 20
+_PADDING = 25
+_SIGNAL_RADIUS = 20
+_SAND_LINE_RADIUS = 10
 
 class _RGBAColor:
 	RED = (1, 0, 0, 1)
@@ -48,19 +50,14 @@ class Car(RelativeLayout, PositionMixin):
 	def __init__(self, car_idx, map_widget):
 		self.idx = car_idx
 		self.pos = Vector((car_idx + 1) * 250, (car_idx + 1) * 250)
-		self.sand_speed = _PADDING / 1.5 - 5 + car_idx
+		self.sand_speed = _PADDING / 2.0 - 5 + car_idx
 		self.full_speed = _PADDING / 1.5 + car_idx
 		self.velocity = self.full_speed
 		self.action = 0
 		self.direction = Vector(-1, 0)
-		self.reward = 0.0
-		self.state = (0, 0, 0, 0, 0)
 		self.scores = []
 
-		self.brain = Brain(
-			len(self.state),
-			len(self._ROTATIONS),
-		)
+		self.brain = Brain(5, 3)
 
 		RelativeLayout.__init__(self)
 
@@ -114,27 +111,28 @@ class Car(RelativeLayout, PositionMixin):
 
 	def _get_state(self):
 		self.orientation = self.direction.angle(self.destination.position - self.position)/180.
+
 		self.left_sensor.signal = int(
 			numpy.sum(
 				self.parent.sand[
-					int(self.left_sensor.abs_pos.x) - _PADDING : int(self.left_sensor.abs_pos.x) + _PADDING,
-					int(self.left_sensor.abs_pos.y) - _PADDING : int(self.left_sensor.abs_pos.y) + _PADDING,
+					int(self.left_sensor.abs_pos.x) - _SIGNAL_RADIUS : int(self.left_sensor.abs_pos.x) + _SIGNAL_RADIUS,
+					int(self.left_sensor.abs_pos.y) - _SIGNAL_RADIUS : int(self.left_sensor.abs_pos.y) + _SIGNAL_RADIUS,
 				]
 			)
 		) / 400.
 		self.middle_sensor.signal = int(
 			numpy.sum(
 				self.parent.sand[
-					int(self.middle_sensor.abs_pos.x) - _PADDING : int(self.middle_sensor.abs_pos.x) + _PADDING,
-					int(self.middle_sensor.abs_pos.y) - _PADDING : int(self.middle_sensor.abs_pos.y) + _PADDING,
+					int(self.middle_sensor.abs_pos.x) - _SIGNAL_RADIUS : int(self.middle_sensor.abs_pos.x) + _SIGNAL_RADIUS,
+					int(self.middle_sensor.abs_pos.y) - _SIGNAL_RADIUS : int(self.middle_sensor.abs_pos.y) + _SIGNAL_RADIUS,
 				]
 			)
 		) / 400.
 		self.right_sensor.signal = int(
 			numpy.sum(
 				self.parent.sand[
-					int(self.right_sensor.abs_pos.x) - _PADDING : int(self.right_sensor.abs_pos.x) + _PADDING,
-					int(self.right_sensor.abs_pos.y) - _PADDING : int(self.right_sensor.abs_pos.y) + _PADDING,
+					int(self.right_sensor.abs_pos.x) - _SIGNAL_RADIUS : int(self.right_sensor.abs_pos.x) + _SIGNAL_RADIUS,
+					int(self.right_sensor.abs_pos.y) - _SIGNAL_RADIUS : int(self.right_sensor.abs_pos.y) + _SIGNAL_RADIUS,
 				]
 			)
 		) / 400.
@@ -153,10 +151,10 @@ class Car(RelativeLayout, PositionMixin):
 
 	def _set_collision_signal_value(self, sensor):
 		if (
-			sensor.position.x > self.parent.width - _PADDING or
-			sensor.position.x < _PADDING or
-			sensor.position.y > self.parent.height - _PADDING or
-			sensor.position.y < _PADDING
+			sensor.abs_pos.x > self.parent.width - _PADDING or
+			sensor.abs_pos.x < _PADDING or
+			sensor.abs_pos.y > self.parent.height - _PADDING or
+			sensor.abs_pos.y < _PADDING
 		):
 			sensor.signal = 1.
 
@@ -171,7 +169,7 @@ class Car(RelativeLayout, PositionMixin):
 			if distance < self.distance:
 				reward = 0.1
 			else:
-				reward = -0.3
+				reward = -0.2
 
 		if self.position.x < _PADDING:
 			self.pos = (_PADDING, self.pos[1])
@@ -285,11 +283,11 @@ class Painter(Widget):
 	def on_touch_move(self, touch):
 		if touch.button == 'left':
 			touch.ud['line'].points += [touch.x, touch.y]
-			self.__length += numpy.sqrt(max((touch.x - self.__last_x)**2 + (touch.y - self.__last_y)**2, 2))
-			self.__n_points += 1.
-			density = self.__n_points/(self.__length)
-			touch.ud['line'].width = int(20 * density + 1)
-			self.parent.sand[int(touch.x) - _PADDING : int(touch.x) + _PADDING, int(touch.y) - _PADDING : int(touch.y) + _PADDING] = 1
+			touch.ud['line'].width = _SAND_LINE_RADIUS * 2
+			self.parent.sand[
+				int(touch.x) - _SAND_LINE_RADIUS : int(touch.x) + _SAND_LINE_RADIUS,
+				int(touch.y) - _SAND_LINE_RADIUS : int(touch.y) + _SAND_LINE_RADIUS
+			] = 1
 			self.__last_x = touch.x
 			self.__last_y = touch.y
 
