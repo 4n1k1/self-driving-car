@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import numpy
+import argparse
 
 from kivy.app import App
 from kivy.vector import Vector
@@ -16,7 +17,7 @@ from kivy.core.window import Window
 from ai import Brain
 from matplotlib import pyplot
 
-_CARS_COUNT = 1
+_DEFAULT_CARS_COUNT = 1
 _CHECK_POINT_OFFEST = Vector(50, 50)
 _PADDING = 25
 _SIGNAL_RADIUS = 20
@@ -119,7 +120,7 @@ class Car(RelativeLayout, PositionMixin):
 					int(self.left_sensor.abs_pos.y) - _SIGNAL_RADIUS : int(self.left_sensor.abs_pos.y) + _SIGNAL_RADIUS,
 				]
 			)
-		) / 400.
+		) / 300.
 		self.middle_sensor.signal = int(
 			numpy.sum(
 				self.parent.sand[
@@ -127,7 +128,7 @@ class Car(RelativeLayout, PositionMixin):
 					int(self.middle_sensor.abs_pos.y) - _SIGNAL_RADIUS : int(self.middle_sensor.abs_pos.y) + _SIGNAL_RADIUS,
 				]
 			)
-		) / 400.
+		) / 300.
 		self.right_sensor.signal = int(
 			numpy.sum(
 				self.parent.sand[
@@ -135,7 +136,7 @@ class Car(RelativeLayout, PositionMixin):
 					int(self.right_sensor.abs_pos.y) - _SIGNAL_RADIUS : int(self.right_sensor.abs_pos.y) + _SIGNAL_RADIUS,
 				]
 			)
-		) / 400.
+		) / 300.
 
 		self._set_collision_signal_value(self.left_sensor)
 		self._set_collision_signal_value(self.right_sensor)
@@ -346,7 +347,16 @@ class CarApp(App):
 		self.__map = Map()
 
 	def build(self):
-		self.__map.build(_CARS_COUNT)
+		parser = argparse.ArgumentParser()
+		parser.add_argument(
+			"cars_count",
+			help="display a square of a given number",
+			type=int,
+			default=_DEFAULT_CARS_COUNT
+		)
+		args = parser.parse_args()
+
+		self.__map.build(args.cars_count)
 
 		Clock.schedule_interval(self.__map.update, 1.0/30.0)
 
