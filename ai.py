@@ -15,7 +15,7 @@ _HIDDEN_LAYER_NEURONS_COUNT = 30  # this is something to experiment with
 """
 _SCALE_FACTOR = 100
 _LEARNING_PERIOD = 1
-_LEARNING_BATCH_SIZE = 200
+_LEARNING_BATCH_SIZE = 100
 
 
 class _DrivingModule(nn.Module):
@@ -137,7 +137,7 @@ class Brain:
 		action = self.__select_action(new_state)
 
 		if (
-			self.__current_tick_num > _LEARNING_PERIOD and
+			self.__current_tick_num >= _LEARNING_PERIOD and
 			self.__memory.size > _LEARNING_BATCH_SIZE
 		):
 			self.__learn(*self.__memory.recall(_LEARNING_BATCH_SIZE))
@@ -157,14 +157,14 @@ class Brain:
 	def score(self):
 		return sum(self.__last_rewards)/(len(self.__last_rewards) + 1.0)
 
-	def save(self):
+	def save(self, file_name):
 		torch.save({
 			'state_dict': self.__module.state_dict(),
 			'optimizer' : self.__optimizer.state_dict(),
-		}, 'last_brain.pth')
+		}, file_name)
 
-	def load(self):
-		if os.path.isfile('last_brain.pth'):
-			checkpoint = torch.load('last_brain.pth')
+	def load(self, file_name):
+		if os.path.isfile(file_name):
+			checkpoint = torch.load(file_name)
 			self.__module.load_state_dict(checkpoint['state_dict'])
 			self.__optimizer.load_state_dict(checkpoint['optimizer'])

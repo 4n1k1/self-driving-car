@@ -48,21 +48,22 @@ class PositionMixin:
 class Car(RelativeLayout, PositionMixin):
 	_ROTATIONS = (0, 20, -20)
 
-	def __init__(self, car_idx, map_widget):
+	def __init__(self, car_idx, initial_destination):
 		self.idx = car_idx
 		self.pos = Vector((car_idx + 1) * 250, (car_idx + 1) * 250)
-		self.sand_speed = _PADDING / 2.0 - 5 + car_idx
-		self.full_speed = _PADDING / 1.5 + car_idx
+		self.sand_speed = _PADDING / 3.0 - 5 + car_idx
+		self.full_speed = _PADDING / 2.0 + car_idx
 		self.velocity = self.full_speed
 		self.action = 0
 		self.direction = Vector(-1, 0)
 		self.scores = []
+		self.status_file = open("car{}_status".format(car_idx), "w")
 
 		self.brain = Brain(5, 3)
 
 		RelativeLayout.__init__(self)
 
-		self.destination = map_widget.airport
+		self.destination = initial_destination
 		self.distance = self.position.distance(self.destination.position)
 
 		self.body = Body(Vector(-5, -5), _IDX_TO_COLOR[self.idx])
@@ -84,7 +85,23 @@ class Car(RelativeLayout, PositionMixin):
 		with self.canvas.after:
 			PopMatrix()
 
+	def save_brain(self):
+		self.brain.save("car{}_brain".format(self.idx))
+
+	def load_brain(self):
+		self.brain.load("car{}_brain".format(self.idx))
+
 	def move(self):
+		self.status_file.seek(0)
+
+		self.status_file.write(
+			"Current destination [{}, [{:>4d}, {:>4d}]]\n".format(
+				self.destination,
+				self.destination.position.x,
+				self.destination.position.y,
+			)
+		)
+
 		angle_of_rotation = self._ROTATIONS[self.action]
 		self.rotation.angle += angle_of_rotation
 		self.direction = self.direction.rotate(angle_of_rotation)
@@ -93,13 +110,15 @@ class Car(RelativeLayout, PositionMixin):
 
 		distance = self.position.distance(self.destination.position)
 
+		self.status_file.write("Distance    {:>9.4f}\n".format(distance))
+
 		self.action = self.brain.update(
 			self._get_reward(distance),
 			self._get_state(),
 		)
 		self.distance = distance
 
-		if self.distance < _PADDING:
+		if self.distance < _PADDING * 2:
 			if isinstance(self.destination, Airport):
 				self.destination = self.parent.downtown
 			else:
@@ -113,6 +132,8 @@ class Car(RelativeLayout, PositionMixin):
 	def _get_state(self):
 		self.orientation = self.direction.angle(self.destination.position - self.position)/180.
 
+		self.status_file.write("Orientation {:>9.4f}\n".format(self.orientation))
+
 		self.left_sensor.signal = int(
 			numpy.sum(
 				self.parent.sand[
@@ -120,7 +141,7 @@ class Car(RelativeLayout, PositionMixin):
 					int(self.left_sensor.abs_pos.y) - _SIGNAL_RADIUS : int(self.left_sensor.abs_pos.y) + _SIGNAL_RADIUS,
 				]
 			)
-		) / 300.
+		) / 400.
 		self.middle_sensor.signal = int(
 			numpy.sum(
 				self.parent.sand[
@@ -128,7 +149,7 @@ class Car(RelativeLayout, PositionMixin):
 					int(self.middle_sensor.abs_pos.y) - _SIGNAL_RADIUS : int(self.middle_sensor.abs_pos.y) + _SIGNAL_RADIUS,
 				]
 			)
-		) / 300.
+		) / 400.
 		self.right_sensor.signal = int(
 			numpy.sum(
 				self.parent.sand[
@@ -136,11 +157,33 @@ class Car(RelativeLayout, PositionMixin):
 					int(self.right_sensor.abs_pos.y) - _SIGNAL_RADIUS : int(self.right_sensor.abs_pos.y) + _SIGNAL_RADIUS,
 				]
 			)
-		) / 300.
+		) / 400.
 
 		self._set_collision_signal_value(self.left_sensor)
 		self._set_collision_signal_value(self.right_sensor)
 		self._set_collision_signal_value(self.middle_sensor)
+
+		self.status_file.write(
+			"Right sensor [{: 2.4f}, [{:>9.4f}, {:>9.4f}]]\n".format(
+				self.right_sensor.signal,
+				self.right_sensor.abs_pos.x,
+				self.right_sensor.abs_pos.y,
+			)
+		)
+		self.status_file.write(
+			"Left sensor  [{: 2.4f}, [{:>9.4f}, {:>9.4f}]]\n".format(
+				self.left_sensor.signal,
+				self.left_sensor.abs_pos.x,
+				self.left_sensor.abs_pos.y,
+			)
+		)
+		self.status_file.write(
+			"Midle sensor [{: 2.4f}, [{:>9.4f}, {:>9.4f}]]\n".format(
+				self.middle_sensor.signal,
+				self.middle_sensor.abs_pos.x,
+				self.middle_sensor.abs_pos.y,
+			)
+		)
 
 		return (
 			self.left_sensor.signal,
@@ -152,10 +195,10 @@ class Car(RelativeLayout, PositionMixin):
 
 	def _set_collision_signal_value(self, sensor):
 		if (
-			sensor.abs_pos.x > self.parent.width - _PADDING or
-			sensor.abs_pos.x < _PADDING or
-			sensor.abs_pos.y > self.parent.height - _PADDING or
-			sensor.abs_pos.y < _PADDING
+			sensor.abs_pos.x >= self.parent.width - _PADDING or
+			sensor.abs_pos.x <= _PADDING or
+			sensor.abs_pos.y >= self.parent.height - _PADDING or
+			sensor.abs_pos.y <= _PADDING
 		):
 			sensor.signal = 1.
 
@@ -188,6 +231,8 @@ class Car(RelativeLayout, PositionMixin):
 			self.pos = (self.pos[0], self.parent.height - _PADDING)
 			reward = -1.0
 
+		self.status_file.write("Reward      {: >9.4f}\n".format(reward))
+
 		return reward
 
 
@@ -214,6 +259,9 @@ class Downtown(Widget, PositionMixin):
 			Color(rgba=_RGBAColor.GREY)
 			Rectangle(pos=self.pos, size=self.size)
 
+	def __repr__(self):
+		return "Downtown"
+
 
 class Airport(Widget, PositionMixin):
 	def __init__(self):
@@ -226,6 +274,8 @@ class Airport(Widget, PositionMixin):
 			Color(rgba=_RGBAColor.GREY)
 			Rectangle(pos=self.pos, size=self.size)
 
+	def __repr__(self):
+		return " Airport"
 
 class Body(Widget, PositionMixin):
 	def __init__(self, pos, color):
@@ -309,6 +359,18 @@ class Map(Widget):
 			size=(100, 50),
 		)
 
+		self.__save_button = Button(
+			text="save",
+			pos=(Window.width - 270, 50),
+			size=(100, 50),
+		)
+
+		self.__load_button = Button(
+			text="load",
+			pos=(Window.width - 390, 50),
+			size=(100, 50),
+		)
+
 		Widget.__init__(self)
 
 		self.sand = numpy.zeros(
@@ -318,17 +380,22 @@ class Map(Widget):
 	def build(self, cars_count):
 		self.add_widget(self.airport)
 		self.add_widget(self.downtown)
+
 		self.add_widget(self.__plot_button)
+		self.add_widget(self.__save_button)
+		self.add_widget(self.__load_button)
 
 		self.add_widget(Painter())
 
 		for i in range(0, cars_count):
-			car = Car(i, self)
+			car = Car(i, self.airport)
 
 			self.cars.append(car)
 			self.add_widget(car)
 
 		self.__plot_button.bind(on_release=self.__plot_learning_process)
+		self.__save_button.bind(on_release=self.__save_brains)
+		self.__load_button.bind(on_release=self.__load_brains)
 
 	def update(self, dt):
 		for car in self.cars:
@@ -339,6 +406,16 @@ class Map(Widget):
 			pyplot.plot(car.scores, color=car.body.color)
 
 		pyplot.show()
+
+	def __save_brains(self, save_button):
+		for car in self.cars:
+			car.save_brain()
+
+	def __load_brains(self, load_button):
+		for car in self.cars:
+			car.load_brain()
+
+
 
 class CarApp(App):
 	def __init__(self):
@@ -358,7 +435,7 @@ class CarApp(App):
 
 		self.__map.build(args.cars_count)
 
-		Clock.schedule_interval(self.__map.update, 1.0/30.0)
+		Clock.schedule_interval(self.__map.update, 1.0/60.0)
 
 		return self.__map
 
