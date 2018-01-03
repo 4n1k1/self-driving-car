@@ -67,9 +67,9 @@ class Car(RelativeLayout, PositionMixin):
 		self.distance = self.position.distance(self.destination.position)
 
 		self.body = Body(Vector(-5, -5), _IDX_TO_COLOR[self.idx])
-		self.middle_sensor = Sensor(Vector(-20, -5), _RGBAColor.RED)
-		self.right_sensor = Sensor(Vector(-12, 10), _RGBAColor.GREEN)
-		self.left_sensor = Sensor(Vector(-12, -20), _RGBAColor.BLUE)
+		self.middle_sensor = Sensor(Vector(-30, -5), _RGBAColor.RED)
+		self.right_sensor = Sensor(Vector(-20, 10), _RGBAColor.GREEN)
+		self.left_sensor = Sensor(Vector(-20, -20), _RGBAColor.BLUE)
 		self.center_mark = Center()
 
 		self.add_widget(self.body)
@@ -91,6 +91,11 @@ class Car(RelativeLayout, PositionMixin):
 	def load_brain(self):
 		self.brain.load("car{}_brain".format(self.idx))
 
+	def _rotate(self, angle_of_rotation):
+		self.rotation.angle += angle_of_rotation
+
+		self.direction = self.direction.rotate(angle_of_rotation)
+
 	def move(self):
 		self.status_file.seek(0)
 
@@ -103,8 +108,12 @@ class Car(RelativeLayout, PositionMixin):
 		)
 
 		angle_of_rotation = self._ROTATIONS[self.action]
-		self.rotation.angle += angle_of_rotation
-		self.direction = self.direction.rotate(angle_of_rotation)
+
+		self._rotate(angle_of_rotation)
+
+		self.middle_sensor.rotate(angle_of_rotation)
+		self.left_sensor.rotate(angle_of_rotation)
+		self.right_sensor.rotate(angle_of_rotation)
 
 		self.pos = self.direction * self.velocity + self.pos
 
@@ -164,21 +173,21 @@ class Car(RelativeLayout, PositionMixin):
 		self._set_collision_signal_value(self.middle_sensor)
 
 		self.status_file.write(
-			"Right sensor [{: 2.4f}, [{:>9.4f}, {:>9.4f}]]\n".format(
+			"Right sensor  [{: 2.4f}, [{:>9.4f}, {:>9.4f}]]\n".format(
 				self.right_sensor.signal,
 				self.right_sensor.abs_pos.x,
 				self.right_sensor.abs_pos.y,
 			)
 		)
 		self.status_file.write(
-			"Left sensor  [{: 2.4f}, [{:>9.4f}, {:>9.4f}]]\n".format(
+			"Left sensor   [{: 2.4f}, [{:>9.4f}, {:>9.4f}]]\n".format(
 				self.left_sensor.signal,
 				self.left_sensor.abs_pos.x,
 				self.left_sensor.abs_pos.y,
 			)
 		)
 		self.status_file.write(
-			"Midle sensor [{: 2.4f}, [{:>9.4f}, {:>9.4f}]]\n".format(
+			"Middle sensor [{: 2.4f}, [{:>9.4f}, {:>9.4f}]]\n".format(
 				self.middle_sensor.signal,
 				self.middle_sensor.abs_pos.x,
 				self.middle_sensor.abs_pos.y,
@@ -244,7 +253,7 @@ class Center(Widget):
 		self.size = (1, 1)
 
 		with self.canvas:
-			Color(rgba=_RGBAColor.GREY)
+			Color(*_RGBAColor.GREY)
 			Ellipse(pos=self.pos, size=self.size)
 
 
@@ -256,7 +265,7 @@ class Downtown(Widget, PositionMixin):
 		Widget.__init__(self)
 
 		with self.canvas:
-			Color(rgba=_RGBAColor.GREY)
+			Color(*_RGBAColor.GREY)
 			Rectangle(pos=self.pos, size=self.size)
 
 	def __repr__(self):
@@ -271,7 +280,7 @@ class Airport(Widget, PositionMixin):
 		Widget.__init__(self)
 
 		with self.canvas:
-			Color(rgba=_RGBAColor.GREY)
+			Color(*_RGBAColor.GREY)
 			Rectangle(pos=self.pos, size=self.size)
 
 	def __repr__(self):
@@ -286,27 +295,31 @@ class Body(Widget, PositionMixin):
 		Widget.__init__(self)
 
 		with self.canvas:
-			Color(rgba=color)
+			Color(*self.color)
 			Rectangle(pos=self.pos, size=self.size)
 
 
-class Sensor(Widget, PositionMixin):
+class Sensor(Widget):
 	def __init__(self, pos, color):
 		self.color = color
 		self.pos = pos
 		self.size = (10, 10)
 		self.signal = 0.
 
+		self._position = Vector(*self.pos)
+
 		Widget.__init__(self)
 
 		with self.canvas:
-			Color(rgba=color)
+			Color(*self.color)
 			Ellipse(pos=self.pos, size=self.size)
+
+	def rotate(self, angle_of_rotation):
+		self._position = self._position.rotate(angle_of_rotation)
 
 	@property
 	def abs_pos(self):
-		# self.parent.pos + self.pos = list of 4 (x, y, z, w I guess)
-		return Vector(*(self.parent.pos + self.pos)[:2])
+		return self.parent.position + self._position
 
 
 class Painter(Widget):
@@ -329,7 +342,10 @@ class Painter(Widget):
 			self.__n_points = 0
 			self.__length = 0
 
-			self.parent.sand[int(touch.x),int(touch.y)] = 1
+			self.parent.sand[
+				int(touch.x) - _SAND_LINE_RADIUS : int(touch.x) + _SAND_LINE_RADIUS,
+				int(touch.y) - _SAND_LINE_RADIUS : int(touch.y) + _SAND_LINE_RADIUS
+			] = 1
 
 	def on_touch_move(self, touch):
 		if touch.button == 'left':
@@ -352,6 +368,8 @@ class Map(Widget):
 
 		self.airport = Airport()
 		self.downtown = Downtown()
+
+		self.__painter = Painter()
 
 		self.__plot_button = Button(
 			text='plot',
@@ -381,11 +399,10 @@ class Map(Widget):
 		self.add_widget(self.airport)
 		self.add_widget(self.downtown)
 
+		self.add_widget(self.__painter)
 		self.add_widget(self.__plot_button)
 		self.add_widget(self.__save_button)
 		self.add_widget(self.__load_button)
-
-		self.add_widget(Painter())
 
 		for i in range(0, cars_count):
 			car = Car(i, self.airport)
