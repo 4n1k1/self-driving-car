@@ -2,6 +2,9 @@
 
 import numpy
 import argparse
+import os
+
+os.environ["KIVY_NO_ARGS"] = "1"
 
 from kivy.app import App
 from kivy.vector import Vector
@@ -49,10 +52,11 @@ class Car(RelativeLayout, PositionMixin):
 	_ROTATIONS = (0, 20, -20)
 
 	def __init__(self, car_idx, initial_destination):
-		self.idx = car_idx
 		self.pos = Vector((car_idx + 1) * 250, (car_idx + 1) * 250)
-		self.sand_speed = _PADDING / 3.0 - 5 + car_idx
-		self.full_speed = _PADDING / 2.0 + car_idx
+
+		self.idx = car_idx
+		self.sand_speed = _PADDING / 4.0 - 5 + car_idx
+		self.full_speed = _PADDING / 3.0 + car_idx
 		self.velocity = self.full_speed
 		self.action = 0
 		self.direction = Vector(-1, 0)
@@ -362,14 +366,15 @@ class Painter(Widget):
 class Map(Widget):
 
 	def __init__(self):
-		self.cars = []
 		self.size = Window.size
 		self.pos = (0, 0)
 
-		self.airport = Airport()
-		self.downtown = Downtown()
+		self.__cars = []
+		self.__airport = Airport()
+		self.__downtown = Downtown()
 
 		self.__painter = Painter()
+		self.__is_paused = False
 
 		self.__plot_button = Button(
 			text='plot',
@@ -389,47 +394,84 @@ class Map(Widget):
 			size=(100, 50),
 		)
 
+		self.__clear_button = Button(
+			text="clear",
+			pos=(Window.width - 150, 120),
+			size=(100, 50),
+		)
+
+		self.__pause_button = Button(
+			text="pause",
+			pos=(Window.width - 270, 120),
+			size=(100, 50),
+		)
+
 		Widget.__init__(self)
 
 		self.sand = numpy.zeros(
 			(self.width, self.height,)
 		)
 
+	@property
+	def airport(self):
+		return self.__airport
+
+	@property
+	def downtown(self):
+		return self.__downtown
+
 	def build(self, cars_count):
-		self.add_widget(self.airport)
-		self.add_widget(self.downtown)
+		self.add_widget(self.__airport)
+		self.add_widget(self.__downtown)
 
 		self.add_widget(self.__painter)
 		self.add_widget(self.__plot_button)
 		self.add_widget(self.__save_button)
 		self.add_widget(self.__load_button)
+		self.add_widget(self.__clear_button)
+		self.add_widget(self.__pause_button)
 
 		for i in range(0, cars_count):
-			car = Car(i, self.airport)
+			car = Car(i, self.__airport)
 
-			self.cars.append(car)
+			self.__cars.append(car)
 			self.add_widget(car)
 
 		self.__plot_button.bind(on_release=self.__plot_learning_process)
 		self.__save_button.bind(on_release=self.__save_brains)
 		self.__load_button.bind(on_release=self.__load_brains)
+		self.__pause_button.bind(on_release=self.__toggle_pause)
+		self.__clear_button.bind(on_release=self.__clear_sand)
 
 	def update(self, dt):
-		for car in self.cars:
+		if self.__is_paused:
+			return
+
+		for car in self.__cars:
 			car.move()
 
+	def __clear_sand(self, clear_button):
+		self.__painter.canvas.clear()
+
+		self.sand = numpy.zeros(
+			(self.width, self.height,)
+		)
+
+	def __toggle_pause(self, pause_button):
+		self.__is_paused = not self.__is_paused
+
 	def __plot_learning_process(self, plot_button):
-		for idx, car in enumerate(self.cars):
+		for idx, car in enumerate(self.__cars):
 			pyplot.plot(car.scores, color=car.body.color)
 
 		pyplot.show()
 
 	def __save_brains(self, save_button):
-		for car in self.cars:
+		for car in self.__cars:
 			car.save_brain()
 
 	def __load_brains(self, load_button):
-		for car in self.cars:
+		for car in self.__cars:
 			car.load_brain()
 
 
@@ -443,7 +485,7 @@ class CarApp(App):
 	def build(self):
 		parser = argparse.ArgumentParser()
 		parser.add_argument(
-			"cars_count",
+			"-c", "--cars_count",
 			help="display a square of a given number",
 			type=int,
 			default=_DEFAULT_CARS_COUNT
