@@ -52,7 +52,7 @@ class Car(RelativeLayout, PositionMixin):
 	_ROTATIONS = (0, 20, -20)
 
 	def __init__(self, car_idx, initial_destination):
-		self.pos = Vector((car_idx + 1) * 250, (car_idx + 1) * 250)
+		self.pos = (100, 100)
 
 		self.idx = car_idx
 		self.sand_speed = _PADDING / 4.0 - 5 + car_idx
@@ -223,10 +223,14 @@ class Car(RelativeLayout, PositionMixin):
 			reward = -0.5
 		else:
 			self.velocity = self.full_speed
+
 			if distance < self.distance:
 				reward = 0.1
 			else:
-				reward = -0.2
+				if 0.0 < self.right_sensor.signal < 1.0:
+					reward = 0.1
+				else:
+					reward = -0.2
 
 		if self.position.x < _PADDING:
 			self.pos = (_PADDING, self.pos[1])
@@ -374,7 +378,7 @@ class Map(Widget):
 		self.__downtown = Downtown()
 
 		self.__painter = Painter()
-		self.__is_paused = False
+		self.__is_paused = True
 
 		self.__plot_button = Button(
 			text='plot',
@@ -401,7 +405,7 @@ class Map(Widget):
 		)
 
 		self.__pause_button = Button(
-			text="pause",
+			text="run",
 			pos=(Window.width - 270, 120),
 			size=(100, 50),
 		)
@@ -459,6 +463,11 @@ class Map(Widget):
 
 	def __toggle_pause(self, pause_button):
 		self.__is_paused = not self.__is_paused
+
+		if self.__is_paused:
+			self.__pause_button.text = "run"
+		else:
+			self.__pause_button.text = "pause"
 
 	def __plot_learning_process(self, plot_button):
 		for idx, car in enumerate(self.__cars):
