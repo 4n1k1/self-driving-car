@@ -410,6 +410,12 @@ class Map(Widget):
 			size=(100, 50),
 		)
 
+		self.__save_map_button = Button(
+			text="screen",
+			pos=(Window.width - 390, 120),
+			size=(100, 50),
+		)
+
 		Widget.__init__(self)
 
 		self.sand = numpy.zeros(
@@ -434,6 +440,7 @@ class Map(Widget):
 		self.add_widget(self.__load_button)
 		self.add_widget(self.__clear_button)
 		self.add_widget(self.__pause_button)
+		self.add_widget(self.__save_map_button)
 
 		for i in range(0, cars_count):
 			car = Car(i, self.__airport)
@@ -446,6 +453,7 @@ class Map(Widget):
 		self.__load_button.bind(on_release=self.__load_brains)
 		self.__pause_button.bind(on_release=self.__toggle_pause)
 		self.__clear_button.bind(on_release=self.__clear_sand)
+		self.__save_map_button.bind(on_release=self.__save_map)
 
 	def update(self, dt):
 		if self.__is_paused:
@@ -453,6 +461,9 @@ class Map(Widget):
 
 		for car in self.__cars:
 			car.move()
+
+	def __save_map(self, save_map_button):
+		self.export_to_png("sdc.png")
 
 	def __clear_sand(self, clear_button):
 		self.__painter.canvas.clear()
