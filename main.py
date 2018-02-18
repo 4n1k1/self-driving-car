@@ -17,6 +17,8 @@ from kivy.graphics.context_instructions import PushMatrix, PopMatrix, Rotate, Tr
 from kivy.clock import Clock
 from kivy.core.window import Window
 
+Window.size = (1280, 720)
+
 from ai import Brain
 from matplotlib import pyplot
 
@@ -220,17 +222,12 @@ class Car(RelativeLayout, PositionMixin):
 
 		if self.parent.sand[int(self.position.x), int(self.position.y)] > 0:
 			self.velocity = self.sand_speed
-			reward = -0.5
+			reward = -0.2
 		else:
 			self.velocity = self.full_speed
 
-			if distance < self.distance:
+			if 0.0 < self.right_sensor.signal < 1.0 or distance < self.distance:
 				reward = 0.1
-			else:
-				if 0.0 < self.right_sensor.signal < 1.0:
-					reward = 0.1
-				else:
-					reward = -0.2
 
 		if self.position.x < _PADDING:
 			self.pos = (_PADDING, self.pos[1])
