@@ -13,9 +13,9 @@ _HIDDEN_LAYER_NEURONS_COUNT = 30  # this is something to experiment with
 	Also called temperature, decreses low softmax values and increases high values.
 	This basically speeds up learning by increasing chance of high values to be picked.
 """
-_SCALE_FACTOR = 100
+_SCALE_FACTOR = 300
 _LEARNING_PERIOD = 1
-_LEARNING_BATCH_SIZE = 100
+_LEARNING_BATCH_SIZE = 1000
 
 
 class _DrivingModule(nn.Module):
@@ -122,10 +122,10 @@ class Brain:
 		td_loss.backward(retain_graph=True)  # backpropagate
 		self.__optimizer.step()  # update the weights
 
-	def update(self, reward, new_signal):
+	def update(self, reward, car_state):
 		self.__current_tick_num += 1
 
-		new_state = torch.Tensor(new_signal).float().unsqueeze(0)
+		new_state = torch.Tensor(car_state).float().unsqueeze(0)
 		self.__memory.remember(
 			(
 				self.__last_state,
@@ -136,11 +136,10 @@ class Brain:
 		)
 		action = self.__select_action(new_state)
 
-		if (
-			self.__current_tick_num >= _LEARNING_PERIOD and
-			self.__memory.size > _LEARNING_BATCH_SIZE
-		):
-			self.__learn(*self.__memory.recall(_LEARNING_BATCH_SIZE))
+		if self.__current_tick_num >= _LEARNING_PERIOD:
+			self.__learn(*self.__memory.recall(
+				self.__memory.size if self.__memory.size < _LEARNING_BATCH_SIZE else _LEARNING_BATCH_SIZE
+			))
 			self.__current_tick_num = 0
 
 		self.__last_action = action
@@ -155,7 +154,7 @@ class Brain:
 		return action
 
 	def score(self):
-		return sum(self.__last_rewards)/(len(self.__last_rewards) + 1.0)
+		return sum(self.__last_rewards)/(len(self.__last_rewards) + 1)
 
 	def save(self, file_name):
 		torch.save({
