@@ -20,7 +20,7 @@ from widgets import (
 )
 from ai import Brain
 
-_SIGNAL_RADIUS = 20
+_SIGNAL_RADIUS = 25
 _PADDING = 25
 _IDX_TO_COLOR = {
 	0: RGBAColor.RED,
@@ -31,43 +31,25 @@ _IDX_TO_COLOR = {
 }
 
 
-class Car(RelativeLayout, PositionMixin):
+class Car(RelativeLayout):
 	_ROTATIONS = (0, 20, -20)
 
 	def __init__(self, car_idx, initial_destination):
 		self.pos = (100, 100)
 
 		self._idx = car_idx
-		self._sand_speed = _PADDING / 4.0 - 5 + car_idx
-		self._full_speed = _PADDING / 3.0 + car_idx
+		self._sand_speed = _PADDING / 5.0
+		self._full_speed = _PADDING / 4.0
 		self._velocity = self._full_speed
-		self._last_action = 0
+		self._last_action = 0  # index of _ROTATIONS
 		self._direction = Vector(-1, 0)
 		self._scores = []
-		self._orientation = 0
+		self._orientation = 0.0
+		self._distance = 0.0
 		self._status_file = open("car{}_status".format(car_idx), "w")
+		self._current_destination = initial_destination
 
 		RelativeLayout.__init__(self)
-
-		self._current_destination = initial_destination
-		self._distance = self.position.distance(self._current_destination.position)
-		self._shift = 0.0
-		self._body = Body(Vector(-5, -5), _IDX_TO_COLOR[self._idx])
-		self._middle_sensor = Sensor(Vector(-30, -5), RGBAColor.RED)
-		self._right_sensor = Sensor(Vector(-20, 10), RGBAColor.GREEN)
-		self._left_sensor = Sensor(Vector(-20, -20), RGBAColor.BLUE)
-		self._center_mark = Center()
-
-		self._brain = Brain(
-			len(self._state),
-			len(self._ROTATIONS),
-		)
-
-		self.add_widget(self._body)
-		self.add_widget(self._middle_sensor)
-		self.add_widget(self._right_sensor)
-		self.add_widget(self._left_sensor)
-		self.add_widget(self._center_mark)
 
 		with self.canvas.before:
 			PushMatrix()
@@ -76,25 +58,38 @@ class Car(RelativeLayout, PositionMixin):
 		with self.canvas.after:
 			PopMatrix()
 
+		self._center = Center()
+		self._body = Body(Vector(-5, -5), _IDX_TO_COLOR[self._idx])
+		self._middle_sensor = Sensor(Vector(-30, -5), RGBAColor.RED, self._rotation)
+		self._right_sensor = Sensor(Vector(-20, 10), RGBAColor.GREEN, self._rotation)
+		self._left_sensor = Sensor(Vector(-20, -20), RGBAColor.BLUE, self._rotation)
+		self._brain = Brain(len(self._state), len(self._ROTATIONS))
+
+	def build(self):
+		self.add_widget(self._body)
+		self.add_widget(self._middle_sensor)
+		self.add_widget(self._right_sensor)
+		self.add_widget(self._left_sensor)
+		self.add_widget(self._center)
+
 	@property
 	def _state(self):
 		return (
 			self._left_sensor.signal,
 			self._middle_sensor.signal,
 			self._right_sensor.signal,
-			self._shift,
 			self._orientation,
 			-self._orientation,
 		)
+
+	@property
+	def position(self):
+		return Vector(*self.pos) + self._center.position
 
 	def _rotate(self, angle_of_rotation):
 		self._rotation.angle += angle_of_rotation
 
 		self._direction = self._direction.rotate(angle_of_rotation)
-
-		self._middle_sensor.rotate(angle_of_rotation)
-		self._left_sensor.rotate(angle_of_rotation)
-		self._right_sensor.rotate(angle_of_rotation)
 
 	def _write_status(self, reward):
 		self._status_file.seek(0)
@@ -143,7 +138,7 @@ class Car(RelativeLayout, PositionMixin):
 		):
 			sensor.signal = 1.
 
-	def _get_reward(self, approached_destination, aligned_trajectory):
+	def _get_reward(self, approached_destination):
 		reward = 0.0
 
 		if self.position.x < _PADDING:
@@ -171,13 +166,10 @@ class Car(RelativeLayout, PositionMixin):
 		else:
 			self._velocity = self._full_speed
 
-			if approached_destination:
+			if approached_destination or self._right_sensor.signal > 0.0:
 				reward = 0.2
-
-			if aligned_trajectory:
-				reward += 0.1
 			else:
-				reward -= 0.2
+				reward = -0.1
 
 		return reward
 
@@ -187,7 +179,6 @@ class Car(RelativeLayout, PositionMixin):
 		self.pos = self._direction * self._velocity + self.pos
 
 		new_distance = self.position.distance(self._current_destination.position)
-		new_shift = self._distance - new_distance
 
 		self._orientation = self._direction.angle(self._current_destination.position - self.position)/180.
 		self._left_sensor.signal = numpy.sum(
@@ -213,10 +204,7 @@ class Car(RelativeLayout, PositionMixin):
 		self._set_collision_signal_value(self._right_sensor)
 		self._set_collision_signal_value(self._middle_sensor)
 
-		reward = self._get_reward(
-			new_shift >= self._shift,
-			new_distance < self._distance,
-		)
+		reward = self._get_reward(new_distance <= self._distance)
 
 		self._last_action = self._brain.update(
 			reward,
@@ -224,7 +212,6 @@ class Car(RelativeLayout, PositionMixin):
 		)
 
 		self._distance = new_distance
-		self._shift = new_shift
 
 		if self._distance < _PADDING * 2:
 			if isinstance(self._current_destination, Airport):
@@ -330,6 +317,7 @@ class Root(Widget):
 
 		for i in range(0, cars_count):
 			car = Car(i, self.__airport)
+			car.build()
 
 			self.__cars.append(car)
 			self.add_widget(car)

@@ -19,10 +19,10 @@ class RGBAColor:
 class PositionMixin:
 	@property
 	def position(self):
-		return Vector(*self.pos[:2])
+		return Vector(*self.pos)
 
 
-class Center(Widget):
+class Center(Widget, PositionMixin):
 	def __init__(self):
 		Widget.__init__(self)
 
@@ -77,14 +77,14 @@ class Body(Widget, PositionMixin):
 			Rectangle(pos=self.pos, size=self.size)
 
 
-class Sensor(Widget):
-	def __init__(self, pos, color):
+class Sensor(Widget, PositionMixin):
+	def __init__(self, pos, color, rotation):
 		self.color = color
 		self.pos = pos
 		self.size = (10, 10)
 		self.signal = 0.0
 
-		self._position = Vector(*self.pos)
+		self._rotation = rotation
 
 		Widget.__init__(self)
 
@@ -92,12 +92,9 @@ class Sensor(Widget):
 			Color(*self.color)
 			Ellipse(pos=self.pos, size=self.size)
 
-	def rotate(self, angle_of_rotation):
-		self._position = self._position.rotate(angle_of_rotation)
-
 	@property
 	def abs_pos(self):
-		return self.parent.position + self._position
+		return self.parent.position + self.position.rotate(self._rotation.angle)
 
 
 class Painter(Widget):
@@ -107,7 +104,7 @@ class Painter(Widget):
 	def on_touch_down(self, touch):
 		with self.canvas:
 			Color(0.8,0.7,0)
-			touch.ud['line'] = Line(points = (touch.x, touch.y), width = _SAND_LINE_RADIUS)
+			touch.ud['line'] = Line(points = (touch.x, touch.y), width = _SAND_LINE_RADIUS * 2)
 
 			self.parent.sand[
 				int(touch.x) - _SAND_LINE_RADIUS : int(touch.x) + _SAND_LINE_RADIUS,

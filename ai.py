@@ -15,16 +15,15 @@ _HIDDEN_LAYER_NEURONS_COUNT = 30  # this is something to experiment with
 """
 _SCALE_FACTOR = 300
 _LEARNING_PERIOD = 1
-_LEARNING_BATCH_SIZE = 1000
-
+_LEARNING_BATCH_SIZE = 1000  # uniform selection from memory
+_MEMORY_SIZE = 10000
+_PLOTTING_INTERVAL = 1000
 
 class _DrivingModule(nn.Module):
 	"""
 		Single module neural network implementation.
-
 		It has only one hidden layer.
 	"""
-
 	def __init__(self, input_size, output_size):
 		nn.Module.__init__(self)
 
@@ -42,7 +41,6 @@ class _DrivingModule(nn.Module):
 		"""
 			Forward propagation implementation.
 		"""
-
 		return self.__hidden_to_output_connections(
 			nn.functional.relu(  # rectifier linear units
 				self.__input_to_hidden_connections(state),
@@ -54,7 +52,6 @@ class _ShortTermMemory:
 	"""
 		Experience replay implementation.
 	"""
-
 	def __init__(self, capacity):
 		self.__capacity = capacity
 		self.__data = []
@@ -67,7 +64,7 @@ class _ShortTermMemory:
 	def recall(self, batch_size):
 		# uniform distribution is probably better than random samples
 		# what zip does: (1,2), (3,4), (5,6) => (1,3,5), (2,4,6)
-		samples = zip(*random.sample(self.__data, batch_size))
+		samples = zip(*self.__data[0::_MEMORY_SIZE/_LEARNING_BATCH_SIZE])
 		return map(lambda x: autograd.Variable(torch.cat(x, 0)), samples)
 
 	@property
@@ -85,7 +82,7 @@ class Brain:
 		self.__gamma = self._DISCOUNT_FACTOR
 		self.__last_rewards = []  # is used for plotting
 		self.__module = _DrivingModule(input_size, output_size)
-		self.__memory = _ShortTermMemory(100000)
+		self.__memory = _ShortTermMemory(_MEMORY_SIZE)
 		# below is one of many variants of gradient descent tools
 		self.__optimizer = optim.Adam(self.__module.parameters(), lr = 0.001)
 		"""
@@ -148,7 +145,7 @@ class Brain:
 
 		self.__last_rewards.append(reward)
 
-		if len(self.__last_rewards) > 1000:
+		if len(self.__last_rewards) > _PLOTTING_INTERVAL:
 			del self.__last_rewards[0]
 
 		return action
