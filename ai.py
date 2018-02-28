@@ -150,6 +150,7 @@ class Brain:
 
 		return action
 
+	@property
 	def score(self):
 		return sum(self.__last_rewards)/(len(self.__last_rewards) + 1)
 
