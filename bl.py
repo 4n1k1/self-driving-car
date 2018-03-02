@@ -1,4 +1,8 @@
 import numpy
+import matplotlib
+import warnings
+
+from matplotlib import rcParams
 from matplotlib import pyplot
 from matplotlib.lines import Line2D
 
@@ -25,11 +29,12 @@ _PADDING = 25
 _SIGNAL_RADIUS = 25
 _PLOTTING_INTERVAL = 1000
 _IDX_TO_COLOR = {
-	0: RGBAColor.RED,
-	1: RGBAColor.GREEN,
-	2: RGBAColor.BLUE,
-	3: RGBAColor.WHITE,
-	4: RGBAColor.GREY,
+	0: (RGBAColor.RED,    "red   "),
+	1: (RGBAColor.GREEN,  "green "),
+	2: (RGBAColor.BLUE,   "blue  "),
+	3: (RGBAColor.PURPLE, "purple"),
+	4: (RGBAColor.YELLOW, "yellow"),
+	5: (RGBAColor.CYAN,   "cyan"),
 }
 
 
@@ -61,7 +66,7 @@ class Car(RelativeLayout):
 			PopMatrix()
 
 		self._center = Center()
-		self._body = Body(Vector(-5, -5), _IDX_TO_COLOR[self._idx])
+		self._body = Body(Vector(-5, -5), _IDX_TO_COLOR[self._idx][0])
 		self._middle_sensor = Sensor(Vector(-30, -5), RGBAColor.RED, self._rotation)
 		self._right_sensor = Sensor(Vector(-20, 10), RGBAColor.GREEN, self._rotation)
 		self._left_sensor = Sensor(Vector(-20, -20), RGBAColor.BLUE, self._rotation)
@@ -96,40 +101,45 @@ class Car(RelativeLayout):
 	def _write_status(self, reward):
 		self._status_file.seek(0)
 		self._status_file.write(
-			"Current destination [{}, [{:>4d}, {:>4d}]]\n".format(
+			"Car color    : {}\n".format(_IDX_TO_COLOR[self._idx][1])
+		)
+		self._status_file.write(
+			"Destination  : {}, ({:>4d}, {:>4d})\n".format(
 				self._current_destination,
 				self._current_destination.position.x,
 				self._current_destination.position.y,
 			)
 		)
 		self._status_file.write(
-			"Distance    {:>9.4f}\n".format(self._distance)
+			"Distance     : {:>9.4f}\n".format(self._distance)
 		)
 		self._status_file.write(
-			"Orientation {:>9.4f}\n".format(self._orientation)
+			"Orientation  : {:>9.4f}\n".format(self._orientation)
 		)
 		self._status_file.write(
-			"Right sensor  [{: 2.4f}, [{:>9.4f}, {:>9.4f}]]\n".format(
+			"Reward       : {: >9.4f}\n".format(reward)
+		)
+		self._status_file.write(
+			"Middle sensor: {: 2.4f}, ({:>9.4f}, {:>9.4f})\n".format(
+				self._middle_sensor.signal,
+				self._middle_sensor.abs_pos.x,
+				self._middle_sensor.abs_pos.y,
+			)
+		)
+		self._status_file.write(
+			"Right sensor : {: 2.4f}, ({:>9.4f}, {:>9.4f})\n".format(
 				self._right_sensor.signal,
 				self._right_sensor.abs_pos.x,
 				self._right_sensor.abs_pos.y,
 			)
 		)
 		self._status_file.write(
-			"Left sensor   [{: 2.4f}, [{:>9.4f}, {:>9.4f}]]\n".format(
+			"Left sensor  : {: 2.4f}, ({:>9.4f}, {:>9.4f})\n".format(
 				self._left_sensor.signal,
 				self._left_sensor.abs_pos.x,
 				self._left_sensor.abs_pos.y,
 			)
 		)
-		self._status_file.write(
-			"Middle sensor [{: 2.4f}, [{:>9.4f}, {:>9.4f}]]\n".format(
-				self._middle_sensor.signal,
-				self._middle_sensor.abs_pos.x,
-				self._middle_sensor.abs_pos.y,
-			)
-		)
-		self._status_file.write("Reward      {: >9.4f}\n".format(reward))
 
 	def _set_collision_signal_value(self, sensor):
 		if (
@@ -145,7 +155,7 @@ class Car(RelativeLayout):
 
 		if self.parent.sand[int(self.position.x), int(self.position.y)] > 0:
 			self._velocity = self._sand_speed
-			reward = -0.5
+			reward = -0.8
 		else:
 			self._velocity = self._full_speed
 
@@ -158,7 +168,7 @@ class Car(RelativeLayout):
 			):
 				reward = 0.2
 			else:
-				reward = -0.1
+				reward = -0.5
 
 		if self.position.x < _PADDING:
 			self.pos = (_PADDING, self.pos[1])
@@ -257,13 +267,17 @@ class Root(Widget):
 		self.__painter = Painter()
 		self.__is_paused = True
 
-		self.__figure = pyplot.figure()
-		self.__plot = self.__figure.add_subplot(111)
+		with warnings.catch_warnings():
+			rcParams['toolbar'] = 'None'
+			warnings.simplefilter("ignore")
+			self.__figure = pyplot.figure(figsize=(6, 3))
+
+		self.__plot = self.__figure.add_subplot(1, 1, 1, axisbg=RGBAColor.GREY)
 		self.__plot.grid()
-		self.__plot.set_xlabel("time")
+		self.__plot.set_xlabel("step")
 		self.__plot.set_ylabel("reward")
 		self.__plot.set_xlim( 0.0, _PLOTTING_INTERVAL + 200)
-		self.__plot.set_ylim(-1.0, 1.0)
+		self.__plot.set_ylim(-1.3, 0.7)
 		self.__plot_lines = []
 
 		self.__save_button = Button(
@@ -274,7 +288,7 @@ class Root(Widget):
 
 		self.__load_button = Button(
 			text="load",
-			pos=(Window.width - 390, 50),
+			pos=(Window.width - 150, 50),
 			size=(100, 50),
 		)
 
@@ -307,12 +321,7 @@ class Root(Widget):
 	def build(self, cars_count):
 		self.add_widget(self.__airport)
 		self.add_widget(self.__downtown)
-
 		self.add_widget(self.__painter)
-		self.add_widget(self.__save_button)
-		self.add_widget(self.__load_button)
-		self.add_widget(self.__clear_button)
-		self.add_widget(self.__pause_button)
 
 		for i in range(0, cars_count):
 			car = Car(i, self.__airport)
@@ -328,6 +337,13 @@ class Root(Widget):
 
 		pyplot.show(block=False)
 
+		self.__empty_plot = self.__figure.canvas.copy_from_bbox(self.__plot.bbox)
+
+		self.add_widget(self.__save_button)
+		self.add_widget(self.__load_button)
+		self.add_widget(self.__clear_button)
+		self.add_widget(self.__pause_button)
+
 		self.__save_button.bind(on_release=self.__save_brains)
 		self.__load_button.bind(on_release=self.__load_brains)
 		self.__pause_button.bind(on_release=self.__toggle_pause)
@@ -341,12 +357,15 @@ class Root(Widget):
 			car.move()
 
 			plot_line = self.__plot_lines[idx]
+			plot_line.set_data(range(len(car.scores)), car.scores)
 
-			a = list(range(len(car.scores)))
+		self.__figure.canvas.restore_region(self.__empty_plot)
 
-			plot_line.set_data(a, car.scores)
+		for idx in range(len(self.__cars)):
+			plot_line = self.__plot_lines[idx]
+			self.__plot.draw_artist(plot_line)
 
-			self.__figure.canvas.draw()
+		self.__figure.canvas.blit(self.__plot.bbox)
 
 	def __clear_sand(self, clear_button):
 		self.__painter.canvas.clear()
