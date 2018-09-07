@@ -106,9 +106,10 @@ class Brain:
 		self.__current_tick_num = 0
 
 	def __select_action(self, state):
-		return nn.functional.softmax(
-			self.__module(autograd.Variable(state, volatile = True)) * _SCALE_FACTOR, dim=1
-		).multinomial().data[0,0]
+		with torch.no_grad():
+			return nn.functional.softmax(
+				self.__module(autograd.Variable(state)) * _SCALE_FACTOR, dim=1
+			).multinomial(1).data[0,0]
 
 	def __learn(self, batch_state, batch_next_state, batch_reward, batch_action):
 		outputs = self.__module(batch_state).gather(1, batch_action.unsqueeze(1)).squeeze(1)

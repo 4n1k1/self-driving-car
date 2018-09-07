@@ -272,7 +272,7 @@ class Root(Widget):
 			warnings.simplefilter("ignore")
 			self.__figure = pyplot.figure(figsize=(6, 3))
 
-		self.__plot = self.__figure.add_subplot(1, 1, 1, axisbg=RGBAColor.GREY)
+		self.__plot = self.__figure.add_subplot(1, 1, 1, facecolor=RGBAColor.GREY)
 		self.__plot.grid()
 		self.__plot.set_xlabel("step")
 		self.__plot.set_ylabel("reward")
