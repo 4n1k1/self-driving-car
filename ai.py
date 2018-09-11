@@ -11,13 +11,15 @@ _HIDDEN_LAYER_NEURONS_COUNT = 30  # this is something to experiment with
 
 """
 	Also called temperature, decreses low softmax values and increases high values.
-	This basically speeds up learning by increasing chance of high values to be picked.
+	This speeds up learning by increasing chance of high values to be picked but
+	reduces exploration.
 """
 _SCALE_FACTOR = 300
 _LEARNING_PERIOD = 1
-_LEARNING_BATCH_SIZE = 1000  # uniform selection from memory
-_MEMORY_SIZE = 10000
+_MEMORY_SIZE = 1000  #
 _PLOTTING_INTERVAL = 1000
+_SELECTION_STEP = 10  # learn on every 10th memory stamp
+
 
 class _DrivingModule(nn.Module):
 	"""
@@ -61,10 +63,9 @@ class _ShortTermMemory:
 		if len(self.__data) > self.__capacity:
 			del self.__data[0]
 
-	def recall(self, batch_size):
-		# uniform distribution is probably better than random samples
+	def recall(self):
 		# what zip does: (1,2), (3,4), (5,6) => (1,3,5), (2,4,6)
-		samples = zip(*self.__data[0::_MEMORY_SIZE/_LEARNING_BATCH_SIZE])
+		samples = zip(*self.__data[0::_SELECTION_STEP])
 		return map(lambda x: autograd.Variable(torch.cat(x, 0)), samples)
 
 	@property
@@ -135,9 +136,7 @@ class Brain:
 		action = self.__select_action(new_state)
 
 		if self.__current_tick_num >= _LEARNING_PERIOD:
-			self.__learn(*self.__memory.recall(
-				self.__memory.size if self.__memory.size < _LEARNING_BATCH_SIZE else _LEARNING_BATCH_SIZE
-			))
+			self.__learn(*self.__memory.recall())
 			self.__current_tick_num = 0
 
 		self.__last_action = action
