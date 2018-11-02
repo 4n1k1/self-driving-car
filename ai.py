@@ -60,13 +60,14 @@ class _ShortTermMemory:
 
 	def remember(self, event):
 		self.__data.append(event)
+
 		if len(self.__data) > self.__capacity:
 			del self.__data[0]
 
 	def recall(self):
 		# what zip does: (1,2), (3,4), (5,6) => (1,3,5), (2,4,6)
 		samples = zip(*self.__data[0::_SELECTION_STEP])
-		return map(lambda x: autograd.Variable(torch.cat(x, 0)), samples)
+		return map(lambda x: torch.cat(x, 0), samples)
 
 	@property
 	def size(self):
@@ -87,19 +88,12 @@ class Brain:
 		# below is one of many variants of gradient descent tools
 		self.__optimizer = optim.Adam(self.__module.parameters(), lr = 0.001)
 		"""
-			>>> torch.Tensor(5)
-
-			 0.0000e+00
-			 0.0000e+00
-			 6.2625e+22
-			 4.7428e+30
-			 3.7843e-39
-			[torch.FloatTensor of size 5x1]
+			>>> y = torch.Tensor(5)
+			>>> y
+			tensor([-2.1135e-03,  3.0726e-41,  4.7428e+30,  3.7843e-39,  4.4842e-44])
 
 			>>> y.unsqueeze(0)
-
-			 0.0000e+00  0.0000e+00  6.2625e+22  4.7428e+30  3.7843e-39
-			[torch.FloatTensor of size 1x5]
+			tensor([[-1.9258e-03,  3.0726e-41, -2.2202e-03,  3.0726e-41,  4.4842e-44]])
 		"""
 		self.__last_state = torch.Tensor(input_size).unsqueeze(0)
 		self.__last_action = 0
@@ -108,15 +102,58 @@ class Brain:
 
 	def __select_action(self, state):
 		with torch.no_grad():
-			return nn.functional.softmax(
-				self.__module(autograd.Variable(state)) * _SCALE_FACTOR, dim=1
-			).multinomial(1).data[0,0]
+			action_probabilities = nn.functional.softmax(
+				self.__module(state) * _SCALE_FACTOR, dim=1
+			)[0]
+
+			best_action = action_probabilities.max()
+
+			return torch.LongTensor(
+				[list(action_probabilities).index(best_action)]
+			)
 
 	def __learn(self, batch_state, batch_next_state, batch_reward, batch_action):
+		"""
+			>>> batch_state
+			tensor([[ 0.0000,  0.0000,  0.0000,  0.0000,  0.0000],
+			        [ 0.0000,  0.0000,  0.0000, -0.1406,  0.1406],
+			        [ 0.0000,  0.0000,  0.0000,  0.7420, -0.7420]])
+			>>> self.__module(batch_state)
+				tensor([[-0.5203, -0.3913, -0.0808],
+				        [-0.4317, -0.3452,  0.0710],
+				        [-1.0347, -0.6176, -0.9143]], grad_fn=<ThAddmmBackward>)
+			>>> batch_action.unsqueeze(1)
+				tensor([[0],
+				        [2],
+				        [2]])
+			>>> self.__module(batch_state).gather(1, batch_action.unsqueeze(1))
+				tensor([[-0.5203],
+				        [ 0.0710],
+				        [-0.9143]], grad_fn=<GatherBackward>)
+			>>> self.__module(batch_state).gather(1, batch_action.unsqueeze(1)).squeeze(1)
+				tensor([-0.5203,  0.0710, -0.9143], grad_fn=<GatherBackward>)
+		"""
 		outputs = self.__module(batch_state).gather(1, batch_action.unsqueeze(1)).squeeze(1)
-		next_outputs = self.__module(batch_next_state).detach().max(1)[0]  # action = 1, state = 0
-		target = self.__gamma*next_outputs + batch_reward
+		"""
+			>>> self.__module(batch_next_state)
+			tensor([[ 0.1743, -0.0896, -0.0638],
+				[ 0.0692, -0.2744, -0.2676],
+				[ 0.0692, -0.2742, -0.2674]], grad_fn=<ThAddmmBackward>)
+			>>> self.__module(batch_next_state).detach()
+			tensor([[ 0.1743, -0.0896, -0.0638],
+				[ 0.0692, -0.2744, -0.2676],
+				[ 0.0692, -0.2742, -0.2674]])
+			>>> self.__module(batch_next_state).detach().max(1)
+			(tensor([0.1743, 0.0692, 0.0692]), tensor([0, 0, 0]))
+			>>> self.__module(batch_next_state).detach().max(1)[0]
+			tensor([0.1743, 0.0692, 0.0692])
+		"""
+		next_outputs = self.__module(batch_next_state).detach().max(1)[0]
+
+		target = self.__gamma * next_outputs + batch_reward
+
 		td_loss = nn.functional.smooth_l1_loss(outputs, target)
+
 		self.__optimizer.zero_grad()  # re-init optimizer
 		td_loss.backward(retain_graph=True)  # backpropagate
 		self.__optimizer.step()  # update the weights
@@ -124,16 +161,26 @@ class Brain:
 	def update(self, reward, car_state):
 		self.__current_tick_num += 1
 
-		new_state = torch.Tensor(car_state).float().unsqueeze(0)
+		"""
+			>>> y = torch.Tensor(5)
+			>>> y
+			tensor([-2.1135e-03,  3.0726e-41,  4.7428e+30,  3.7843e-39,  4.4842e-44])
+
+			>>> y.unsqueeze(0)
+			tensor([[-1.9258e-03,  3.0726e-41, -2.2202e-03,  3.0726e-41,  4.4842e-44]])
+		"""
+		new_state = torch.Tensor(car_state).unsqueeze(0)
+
+		action = self.__select_action(new_state)
+
 		self.__memory.remember(
 			(
 				self.__last_state,
 				new_state,
 				torch.Tensor([self.__last_reward]),
-				torch.LongTensor([int(self.__last_action)]),
+				torch.LongTensor([self.__last_action]),
 			)
 		)
-		action = self.__select_action(new_state)
 
 		if self.__current_tick_num >= _LEARNING_PERIOD:
 			self.__learn(*self.__memory.recall())
