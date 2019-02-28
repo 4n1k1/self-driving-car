@@ -1,7 +1,8 @@
 import numpy
-import matplotlib
 import warnings
 
+import matplotlib
+matplotlib.use('agg')
 from matplotlib import rcParams
 from matplotlib import pyplot
 from matplotlib.lines import Line2D
@@ -13,7 +14,8 @@ from kivy.uix.relativelayout import RelativeLayout
 from kivy.graphics.context_instructions import PushMatrix, PopMatrix, Rotate
 from kivy.core.window import Window
 
-from ai import Brain
+from absl.flags import FLAGS
+
 from widgets import (
 	Center,
 	Body,
@@ -22,7 +24,6 @@ from widgets import (
 	Airport,
 	Painter,
 	RGBAColor,
-	PositionMixin,
 )
 
 _PADDING = 25
@@ -70,6 +71,12 @@ class Car(RelativeLayout):
 		self._middle_sensor = Sensor(Vector(-30, -5), RGBAColor.RED, self._rotation)
 		self._right_sensor = Sensor(Vector(-20, 10), RGBAColor.GREEN, self._rotation)
 		self._left_sensor = Sensor(Vector(-20, -20), RGBAColor.BLUE, self._rotation)
+
+		if FLAGS.use_pytorch:
+			from torch_ai import Brain
+		else:
+			from simple_ai import Brain
+
 		self._brain = Brain(len(self._state), len(self._ROTATIONS))
 
 	def build(self):
@@ -318,12 +325,12 @@ class Root(Widget):
 	def downtown(self):
 		return self.__downtown
 
-	def build(self, cars_count):
+	def build(self):
 		self.add_widget(self.__airport)
 		self.add_widget(self.__downtown)
 		self.add_widget(self.__painter)
 
-		for i in range(0, cars_count):
+		for i in range(0, FLAGS.cars_count):
 			car = Car(i, self.__airport)
 			car.build()
 

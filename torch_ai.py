@@ -4,12 +4,13 @@ import torch
 
 from torch import nn
 from torch import optim
-from torch import autograd
+
+from absl.flags import FLAGS
 
 _HIDDEN_LAYER_NEURONS_COUNT = 30  # this is something to experiment with
 
 """
-	Also called temperature, decreses low softmax values and increases high values.
+	Also called temperature, decreases low softmax values and increases high values.
 	This speeds up learning by increasing chance of high values to be picked but
 	reduces exploration.
 """
@@ -75,17 +76,15 @@ class _ShortTermMemory:
 
 class Brain:
 	"""
-	Deep Q Learning brain implemenation.
+	Deep Q Learning brain implementation.
 	"""
-	_DISCOUNT_FACTOR = 0.9
-
 	def __init__(self, input_size, output_size):
-		self.__gamma = self._DISCOUNT_FACTOR
+		self.__gamma = FLAGS.discount_factor
 		self.__last_rewards = []  # is used for plotting
 		self.__module = _DrivingModule(input_size, output_size)
 		self.__memory = _ShortTermMemory(_MEMORY_SIZE)
 		# below is one of many variants of gradient descent tools
-		self.__optimizer = optim.Adam(self.__module.parameters(), lr = 0.001)
+		self.__optimizer = optim.Adam(self.__module.parameters(), lr=0.001)
 		"""
 			>>> y = torch.Tensor(5)
 			>>> y
