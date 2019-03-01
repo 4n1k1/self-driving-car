@@ -1,34 +1,19 @@
 import numpy
-import warnings
-
-import matplotlib
-matplotlib.use('agg')
-from matplotlib import rcParams
-from matplotlib import pyplot
-from matplotlib.lines import Line2D
 
 from kivy.vector import Vector
-from kivy.uix.widget import Widget
-from kivy.uix.button import Button
 from kivy.uix.relativelayout import RelativeLayout
 from kivy.graphics.context_instructions import PushMatrix, PopMatrix, Rotate
-from kivy.core.window import Window
-
-from absl.flags import FLAGS
 
 from widgets import (
 	Center,
 	Body,
 	Sensor,
-	Downtown,
 	Airport,
-	Painter,
 	RGBAColor,
 )
 
 _PADDING = 25
 _SIGNAL_RADIUS = 25
-_PLOTTING_INTERVAL = 1000
 _IDX_TO_COLOR = {
 	0: (RGBAColor.RED,    "red   "),
 	1: (RGBAColor.GREEN,  "green "),
@@ -42,7 +27,7 @@ _IDX_TO_COLOR = {
 class Car(RelativeLayout):
 	_ROTATIONS = (0, 20, -20)
 
-	def __init__(self, car_idx, initial_destination):
+	def __init__(self, car_idx, initial_destination, args):
 		self.pos = (100, 100)
 
 		self._idx = car_idx
@@ -56,6 +41,7 @@ class Car(RelativeLayout):
 		self._distance = 0.0
 		self._status_file = open("car{}_status".format(car_idx), "w")
 		self._current_destination = initial_destination
+		self._write_status_file = args.write_status_file
 
 		RelativeLayout.__init__(self)
 
@@ -72,7 +58,7 @@ class Car(RelativeLayout):
 		self._right_sensor = Sensor(Vector(-20, 10), RGBAColor.GREEN, self._rotation)
 		self._left_sensor = Sensor(Vector(-20, -20), RGBAColor.BLUE, self._rotation)
 
-		if FLAGS.use_pytorch:
+		if args.use_pytorch:
 			from torch_ai import Brain
 		else:
 			from simple_ai import Brain
@@ -158,8 +144,6 @@ class Car(RelativeLayout):
 			sensor.signal = 1.
 
 	def _get_reward(self, approached_destination):
-		reward = 0.0
-
 		if self.parent.sand[int(self.position.x), int(self.position.y)] > 0:
 			self._velocity = self._sand_speed
 			reward = -0.8
@@ -205,20 +189,20 @@ class Car(RelativeLayout):
 		self._orientation = self._direction.angle(self._current_destination.position - self.position)/180.
 		self._left_sensor.signal = numpy.sum(
 			self.parent.sand[
-				int(self._left_sensor.abs_pos.x) - _SIGNAL_RADIUS : int(self._left_sensor.abs_pos.x) + _SIGNAL_RADIUS,
-				int(self._left_sensor.abs_pos.y) - _SIGNAL_RADIUS : int(self._left_sensor.abs_pos.y) + _SIGNAL_RADIUS,
+				int(self._left_sensor.abs_pos.x) - _SIGNAL_RADIUS: int(self._left_sensor.abs_pos.x) + _SIGNAL_RADIUS,
+				int(self._left_sensor.abs_pos.y) - _SIGNAL_RADIUS: int(self._left_sensor.abs_pos.y) + _SIGNAL_RADIUS,
 			]
 		) / 400.
 		self._middle_sensor.signal = numpy.sum(
 			self.parent.sand[
-				int(self._middle_sensor.abs_pos.x) - _SIGNAL_RADIUS : int(self._middle_sensor.abs_pos.x) + _SIGNAL_RADIUS,
-				int(self._middle_sensor.abs_pos.y) - _SIGNAL_RADIUS : int(self._middle_sensor.abs_pos.y) + _SIGNAL_RADIUS,
+				int(self._middle_sensor.abs_pos.x) - _SIGNAL_RADIUS: int(self._middle_sensor.abs_pos.x) + _SIGNAL_RADIUS,
+				int(self._middle_sensor.abs_pos.y) - _SIGNAL_RADIUS: int(self._middle_sensor.abs_pos.y) + _SIGNAL_RADIUS,
 			]
 		) / 400.
 		self._right_sensor.signal = numpy.sum(
 			self.parent.sand[
-				int(self._right_sensor.abs_pos.x) - _SIGNAL_RADIUS : int(self._right_sensor.abs_pos.x) + _SIGNAL_RADIUS,
-				int(self._right_sensor.abs_pos.y) - _SIGNAL_RADIUS : int(self._right_sensor.abs_pos.y) + _SIGNAL_RADIUS,
+				int(self._right_sensor.abs_pos.x) - _SIGNAL_RADIUS: int(self._right_sensor.abs_pos.x) + _SIGNAL_RADIUS,
+				int(self._right_sensor.abs_pos.y) - _SIGNAL_RADIUS: int(self._right_sensor.abs_pos.y) + _SIGNAL_RADIUS,
 			]
 		) / 400.
 
@@ -246,7 +230,8 @@ class Car(RelativeLayout):
 		if len(self._scores) > 1000:
 			del self._scores[0]
 
-		self._write_status(reward)
+		if self._write_status_file:
+			self._write_status(reward)
 
 	def save_brain(self):
 		self._brain.save("car{}_brain".format(self._idx))
@@ -261,138 +246,3 @@ class Car(RelativeLayout):
 	@property
 	def body_color(self):
 		return self._body.color
-
-
-class Root(Widget):
-	def __init__(self):
-		self.size = Window.size
-		self.pos = (0, 0)
-
-		self.__cars = []
-		self.__airport = Airport()
-		self.__downtown = Downtown()
-		self.__painter = Painter()
-		self.__is_paused = True
-
-		with warnings.catch_warnings():
-			rcParams['toolbar'] = 'None'
-			warnings.simplefilter("ignore")
-			self.__figure = pyplot.figure(figsize=(6, 3))
-
-		self.__plot = self.__figure.add_subplot(1, 1, 1, facecolor=RGBAColor.GREY)
-		self.__plot.grid()
-		self.__plot.set_xlabel("step")
-		self.__plot.set_ylabel("reward")
-		self.__plot.set_xlim( 0.0, _PLOTTING_INTERVAL + 200)
-		self.__plot.set_ylim(-1.3, 0.7)
-		self.__plot_lines = []
-
-		self.__save_button = Button(
-			text="save",
-			pos=(Window.width - 270, 50),
-			size=(100, 50),
-		)
-
-		self.__load_button = Button(
-			text="load",
-			pos=(Window.width - 150, 50),
-			size=(100, 50),
-		)
-
-		self.__clear_button = Button(
-			text="clear",
-			pos=(Window.width - 150, 120),
-			size=(100, 50),
-		)
-
-		self.__pause_button = Button(
-			text="run",
-			pos=(Window.width - 270, 120),
-			size=(100, 50),
-		)
-
-		Widget.__init__(self)
-
-		self.sand = numpy.zeros(
-			(self.width, self.height,)
-		)
-
-	@property
-	def airport(self):
-		return self.__airport
-
-	@property
-	def downtown(self):
-		return self.__downtown
-
-	def build(self):
-		self.add_widget(self.__airport)
-		self.add_widget(self.__downtown)
-		self.add_widget(self.__painter)
-
-		for i in range(0, FLAGS.cars_count):
-			car = Car(i, self.__airport)
-			car.build()
-
-			self.__cars.append(car)
-			self.add_widget(car)
-
-			plot_line = Line2D([], [], color=car.body_color)
-
-			self.__plot_lines.append(plot_line)
-			self.__plot.add_line(plot_line)
-
-		pyplot.show(block=False)
-
-		self.__empty_plot = self.__figure.canvas.copy_from_bbox(self.__plot.bbox)
-
-		self.add_widget(self.__save_button)
-		self.add_widget(self.__load_button)
-		self.add_widget(self.__clear_button)
-		self.add_widget(self.__pause_button)
-
-		self.__save_button.bind(on_release=self.__save_brains)
-		self.__load_button.bind(on_release=self.__load_brains)
-		self.__pause_button.bind(on_release=self.__toggle_pause)
-		self.__clear_button.bind(on_release=self.__clear_sand)
-
-	def update(self, dt):
-		if self.__is_paused:
-			return
-
-		for idx, car in enumerate(self.__cars):
-			car.move()
-
-			plot_line = self.__plot_lines[idx]
-			plot_line.set_data(range(len(car.scores)), car.scores)
-
-		self.__figure.canvas.restore_region(self.__empty_plot)
-
-		for idx in range(len(self.__cars)):
-			plot_line = self.__plot_lines[idx]
-			self.__plot.draw_artist(plot_line)
-
-		self.__figure.canvas.blit(self.__plot.bbox)
-
-	def __clear_sand(self, clear_button):
-		self.__painter.canvas.clear()
-
-		self.sand = numpy.zeros(
-			(self.width, self.height,)
-		)
-
-	def __toggle_pause(self, pause_button):
-		self.__is_paused = not self.__is_paused
-
-		if self.__is_paused:
-			self.__pause_button.text = "run"
-		else:
-			self.__pause_button.text = "pause"
-
-	def __save_brains(self, save_button):
-		for car in self.__cars:
-			car.save_brain()
-
-	def __load_brains(self, load_button):
-		for car in self.__cars:
-			car.load_brain()

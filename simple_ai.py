@@ -2,10 +2,6 @@ import numpy
 from math import exp, tan, pow
 from random import random
 from collections import namedtuple
-from time import time, sleep
-
-from absl.flags import FLAGS
-from tqdm import trange
 
 
 def sigmoid(weighted_input):
@@ -24,10 +20,9 @@ DERIVATIVES = {
 
 class NeuralNetwork(object):
 	def __init__(self, structure, is_reinforcement=True, capacity=1000):
-		self._discount_factor = FLAGS.discount_factor
+		self._discount_factor = 0.9
 		self._layers = []
 		self._is_reinforcement = is_reinforcement
-		self._visual_file = open("network.visual", "w")
 		self._bias_neuron = BiasNeuron()
 		self._max_capacity = capacity
 		self._memory = namedtuple(
@@ -37,15 +32,15 @@ class NeuralNetwork(object):
 				"t0_to_t1_action",
 				"t0_to_t1_reward",
 			]
-		)([], [], [])
+		)([], [], [], [])
 
 		for idx, neurons_count in enumerate(structure):
 			if idx == 0:
 				layer = [StateNeuron() for i in range(neurons_count)]
 			elif idx == len(structure) - 1:
-				layer = [PredictionNeuron(sigmoid, FLAGS.learning_rate) for i in range(neurons_count)]
+				layer = [PredictionNeuron(sigmoid, 10.0) for i in range(neurons_count)]
 			else:
-				layer = [HiddenNeuron(i, sigmoid, FLAGS.learning_rate) for i in range(neurons_count)]
+				layer = [HiddenNeuron(i, sigmoid, 10.0) for i in range(neurons_count)]
 
 			self._layers.append(layer)
 
@@ -76,7 +71,7 @@ class NeuralNetwork(object):
 	def _get_training_data(self):
 		result = [[], [], []]
 
-		for i in xrange(len(self._memory.t0_state)):
+		for i in range(len(self._memory.t0_state)):
 			t0_predicted_output = self.predict(self._memory.t0_state[i])
 			t0_to_t1_action = self._memory.t0_to_t1_action[i]
 			t0_picked_output_value = t0_predicted_output[t0_to_t1_action]
@@ -117,7 +112,7 @@ class NeuralNetwork(object):
 			for neuron in layer:
 				neuron.update_weights()
 
-		if FLAGS.write_state_file:
+		if False:
 			self.write_visual_file()
 
 	def predict(self, state):
@@ -147,6 +142,8 @@ class NeuralNetwork(object):
 		return numpy.exp(values) / numpy.sum(numpy.exp(values), axis=0)
 
 	def write_visual_file(self):
+		self._visual_file = open("network.visual", "w")
+
 		self._visual_file.seek(0)
 		self._visual_file.write("          ".join([str(neuron.output) for neuron in self._layers[0]]) + "\n")
 		self._visual_file.write("|\n")
@@ -161,6 +158,8 @@ class NeuralNetwork(object):
 			self._visual_file.write("          ".join(["{: f}".format(neuron_1.output) for neuron_1 in self._layers[layer_idx]]) + "\n")
 			self._visual_file.write("          ".join(["========="] * len(self._layers[layer_idx])) + "\n")
 			self._visual_file.write("|\n")
+
+		self._visual_file.close()
 
 
 class Neuron(object):
@@ -230,7 +229,7 @@ class NeuronCore(Neuron):
 		weighted_input = 0.0
 
 		for idx, neuron in enumerate(self._input_neurons):
-			weighted_input += neuron.output() * self._weights[idx]
+			weighted_input += neuron.output * self._weights[idx]
 
 		self._output = self._activation_function(weighted_input)
 
@@ -279,9 +278,7 @@ class Brain(object):
 		self._rewards = []
 		self._rewards_capacity = 1000
 
-		nn_structure = [input_size, 30, output_size]
-
-		self._nn = NeuralNetwork(nn_structure, is_reinforcement=True)
+		self._nn = NeuralNetwork([input_size, 30, output_size], is_reinforcement=True)
 
 	def update(self, reward, car_state):
 		action = self._nn.predict(car_state)

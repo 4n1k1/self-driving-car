@@ -5,8 +5,6 @@ import torch
 from torch import nn
 from torch import optim
 
-from absl.flags import FLAGS
-
 _HIDDEN_LAYER_NEURONS_COUNT = 30  # this is something to experiment with
 
 """
@@ -79,7 +77,7 @@ class Brain:
 	Deep Q Learning brain implementation.
 	"""
 	def __init__(self, input_size, output_size):
-		self.__gamma = FLAGS.discount_factor
+		self.__gamma = 0.9
 		self.__last_rewards = []  # is used for plotting
 		self.__module = _DrivingModule(input_size, output_size)
 		self.__memory = _ShortTermMemory(_MEMORY_SIZE)

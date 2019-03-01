@@ -1,15 +1,15 @@
 #!/usr/bin/python
 
+import argparse
 import os
-
 os.environ["KIVY_NO_ARGS"] = "1"
 
 from kivy.app import App
 from kivy.clock import Clock
 from kivy.core.window import Window
+from kivy.logger import Logger
 
-from bl import Root
-from absl import app, flags
+from root import Root
 
 
 Window.size = (1280, 720)
@@ -22,23 +22,41 @@ class Main(App):
 	def __init__(self):
 		App.__init__(self)
 
-		self.__map = Root()
+		self._root = Root()
 
 	def build(self):
-		self.__map.build(args.cars_count)
+		parser = argparse.ArgumentParser()
+		parser.add_argument(
+			"-c", "--cars_count",
+			help="display a square of a given number",
+			type=int,
+			default=_DEFAULT_CARS_COUNT
+		)
+		parser.add_argument(
+			"-up", "--use_pytorch",
+			help="Use pytorch framework for NN",
+			type=bool,
+			default=False
+		)
+		parser.add_argument(
+			"-ws", "--write_status_file",
+			help="Write simple visualization in text file",
+			type=bool,
+			default=False
+		)
 
-		Clock.schedule_interval(self.__map.update, 1.0/30.0)
+		args = parser.parse_args()
 
-		return self.__map
+		if args.cars_count > _MAX_CARS_COUNT:
+			Logger.warning("zOrg app: maximum cars number exceeded, falling back to 6")
+			args.cars_count = _MAX_CARS_COUNT
 
+		self._root.build(args)
 
-def main(_):
-	Main().run()
+		Clock.schedule_interval(self._root.update, 1.0 / 30.0)
+
+		return self._root
 
 
 if __name__ == '__main__':
-	flags.DEFINE_integer("cars_count", _DEFAULT_CARS_COUNT, "Number of cars to train", upper_bound=6)
-	flags.DEFINE_boolean("use_pytorch", False, "Use pytorch AI implementation")
-	flags.DEFINE_float("learning_rate", 10.0, "Defines gradient descent step modifier value.")
-	flags.DEFINE_float("discount_factor", 0.9, "")
-	app.run(main)
+	Main().run()
