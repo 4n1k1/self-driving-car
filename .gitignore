@@ -2,7 +2,6 @@
 network.visual
 
 *.pyc
-*.png
 *.pth
 *.swp
 *_status
