@@ -186,7 +186,7 @@ class Car(RelativeLayout):
 
         new_distance = self.position.distance(self._current_destination.position)
 
-        self._orientation = self._direction.angle(self._current_destination.position - self.position)/180.
+        self._orientation = self._direction.angle(self._current_destination.position - self.position) / 180.
         self._left_sensor.signal = numpy.sum(
             self.parent.sand[
                 int(self._left_sensor.abs_pos.x) - _SIGNAL_RADIUS: int(self._left_sensor.abs_pos.x) + _SIGNAL_RADIUS,
@@ -195,8 +195,8 @@ class Car(RelativeLayout):
         ) / 400.
         self._mid_sensor.signal = numpy.sum(
             self.parent.sand[
-			int(self._mid_sensor.abs_pos.x) - _SIGNAL_RADIUS: int(self._mid_sensor.abs_pos.x) + _SIGNAL_RADIUS,
-			int(self._mid_sensor.abs_pos.y) - _SIGNAL_RADIUS: int(self._mid_sensor.abs_pos.y) + _SIGNAL_RADIUS,
+                int(self._mid_sensor.abs_pos.x) - _SIGNAL_RADIUS: int(self._mid_sensor.abs_pos.x) + _SIGNAL_RADIUS,
+                int(self._mid_sensor.abs_pos.y) - _SIGNAL_RADIUS: int(self._mid_sensor.abs_pos.y) + _SIGNAL_RADIUS,
             ]
         ) / 400.
         self._right_sensor.signal = numpy.sum(
