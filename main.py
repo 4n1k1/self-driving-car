@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 
 import argparse
+import os
+
+os.environ["KIVY_NO_ARGS"] = "1"
 
 from kivy.app import App
 from kivy.clock import Clock
@@ -29,25 +32,25 @@ class Main(App):
             "-c", "--cars_count",
             help="display a square of a given number",
             type=int,
-            default=_DEFAULT_CARS_COUNT
+            default=_DEFAULT_CARS_COUNT,
         )
         parser.add_argument(
             "-s", "--scale_factor",
             help="softmax scale factor",
             type=int,
-            default=_SCALE_FACTOR
+            default=_SCALE_FACTOR,
         )
         parser.add_argument(
             "-up", "--use_pytorch",
             help="Use pytorch framework for NN",
             type=bool,
-            default=False
+            default=True,
         )
         parser.add_argument(
             "-ws", "--write_status_file",
             help="Write simple visualization in text file",
             type=bool,
-            default=False
+            default=False,
         )
 
         args = parser.parse_args()
