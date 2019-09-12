@@ -39,9 +39,11 @@ class Car(RelativeLayout):
         self._scores = []
         self._orientation = 0.0
         self._distance = 0.0
-        self._status_file = open("car{}_status".format(car_idx), "w")
         self._current_destination = initial_destination
         self._write_status_file = args.write_status_file
+
+        if self._write_status_file:
+            self._status_file = open("car{}_status".format(car_idx), "w")
 
         RelativeLayout.__init__(self)
 
