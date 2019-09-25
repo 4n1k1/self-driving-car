@@ -1,10 +1,9 @@
-#!/usr/bin/env python
-
 import numpy
 
 from math import exp, tan
 from random import uniform
 from time import time, sleep
+from kivy.logger import Logger
 
 
 def sigmoid(weighted_input):
@@ -27,6 +26,10 @@ class NeuralNetwork:
         self._scale_factor = args.scale_factor
         self._visual_file = open("network.visual", "w")
 
+        self._last_prediction = [0.0] * structure[-1]
+        self._score = 0
+        self._rewards = []
+
         for idx, neurons_count in enumerate(structure):
             if idx == 0:
                 layer = [StateNeuron() for _ in range(neurons_count)]
@@ -46,20 +49,22 @@ class NeuralNetwork:
                 else:
                     neuron.connect(self._layers[idx - 1], self._layers[idx + 1])
 
-    @staticmethod
-    def _softmax(values, enforce_factor=1.0):
-        values = [value * enforce_factor for value in values]
-
-        return numpy.exp(values) / numpy.sum(numpy.exp(values), axis=0)
+    def score(self):
+        return self._score
 
     def learn(self, state, reward):
+        self._score = sum(self._rewards)/(len(self._rewards) + 1)
+
+        if len(self._rewards) > 1000:
+            del(self._rewards[0])  # this is bad operation
+        else:
+            self._rewards.append(reward)
+
         for idx, value in enumerate(state):
             self._layers[0][idx].output = value
 
-        action_probabilities = self.predict(state)
-
-        for idx, value in enumerate(solution):
-            self._layers[-1][idx].expected = solution[idx]
+        for idx, value in enumerate(self._last_prediction):
+            self._layers[-1][idx].expected = reward + value
 
         #
         # State forward propagation.
@@ -81,23 +86,24 @@ class NeuralNetwork:
             for neuron in layer:
                 neuron.update_weights()
 
-        return [neuron.output for neuron in self._layers[-1]]
 
     def predict(self, state):
         for idx, value in enumerate(state):
             self._layers[0][idx].output = value
 
-        output = [neuron.calculate_output() for neuron in self._layers[-1]]
+        self._last_prediction = [neuron.calculate_output() for neuron in self._layers[-1]]
 
-        action_probabilities = self._softmax(
-            output * self._scale_factor, dim=1
-        )[0]
+        epsilon = 0.05
 
-        best_action = action_probabilities.max()
+#        if self._score < 0:
+#            epsilon = -self._score
 
-        return torch.LongTensor(
-            [list(action_probabilities).index(best_action)]
-        )
+        choice = numpy.random.binomial(1, epsilon)
+
+        if choice == 1:
+            return numpy.random.choice(len(self._last_prediction))
+        else:
+            return numpy.argmax(self._last_prediction)
 
     def write_visual_file(self):
         self._visual_file.seek(0)
@@ -223,7 +229,9 @@ class HiddenNeuron(NeuronCore):
 
 class Brain:
     def __init__(self, inputs_count, outputs_count, args):
-        network_structure = [inputs_count, 30, outputs_count]
+        Logger.info("Application: Initializing simple AI")
+
+        network_structure = [inputs_count, 10, outputs_count]
 
         self._network = NeuralNetwork(network_structure, args)
 

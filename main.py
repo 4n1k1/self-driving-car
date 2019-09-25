@@ -27,7 +27,14 @@ class Main(App):
         self._root = Root()
 
     def build(self):
+        def _bool(value):
+            if value == "1":
+                return True
+            else:
+                return False
+
         parser = argparse.ArgumentParser()
+
         parser.add_argument(
             "-c", "--cars_count",
             help="display a square of a given number",
@@ -43,13 +50,13 @@ class Main(App):
         parser.add_argument(
             "-up", "--use_pytorch",
             help="Use pytorch framework for NN",
-            type=bool,
+            type=_bool,
             default=True,
         )
         parser.add_argument(
             "-ws", "--write_status_file",
             help="Write simple visualization in text file",
-            type=bool,
+            type=_bool,
             default=False,
         )
 

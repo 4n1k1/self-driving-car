@@ -4,6 +4,8 @@ import torch
 
 from torch import nn
 from torch import optim
+from kivy.logger import Logger
+
 
 _HIDDEN_LAYER_NEURONS_COUNT = 30  # this is something to experiment with
 
@@ -25,6 +27,8 @@ class _DrivingModule(nn.Module):
         It has only one hidden layer.
     """
     def __init__(self, input_size, output_size):
+        Logger.info("Application: Initializing Torch AI")
+
         nn.Module.__init__(self)
 
         self.__input_to_hidden_connections = nn.Linear(

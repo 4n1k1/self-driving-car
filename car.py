@@ -146,22 +146,26 @@ class Car(RelativeLayout):
             sensor.signal = 1.
 
     def _get_reward(self, approached_destination):
-        if self.parent.sand[int(self.position.x), int(self.position.y)] > 0:
-            self._velocity = self._sand_speed
-            reward = -0.8
-        else:
-            self._velocity = self._full_speed
+        reward = 0.0
 
-            if (
-                approached_destination or
-                (
-                    self._right_sensor.signal > 0.0 and
-                    self._left_sensor.signal == 0.0
-                )
-            ):
-                reward = 0.2
+        if approached_destination:
+            if self.parent.sand[int(self.position.x), int(self.position.y)] > 0:
+                self._velocity = self._sand_speed
+
+                reward = -0.3
             else:
-                reward = -0.5
+                self._velocity = self._full_speed
+
+                reward = 1.0
+        else:
+            if self.parent.sand[int(self.position.x), int(self.position.y)] > 0:
+                self._velocity = self._sand_speed
+
+                reward = -1.0
+            else:
+                self._velocity = self._full_speed
+
+                reward -0.8
 
         if self.position.x < _PADDING:
             self.pos = (_PADDING, self.pos[1])
