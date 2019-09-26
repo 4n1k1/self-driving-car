@@ -93,14 +93,16 @@ class NeuralNetwork:
 
         self._last_prediction = [neuron.calculate_output() for neuron in self._layers[-1]]
 
-        epsilon = 0.05
+        epsilon = 0.0
+        recent_etl = 10
 
-#        if self._score < 0:
-#            epsilon = -self._score
+        if len(self._rewards) > recent_etl:
+          recent_overage_reward = sum(self._rewards[-recent_etl:]) / recent_etl
 
-        choice = numpy.random.binomial(1, epsilon)
+          if recent_overage_reward < 0:
+            epsilon = -recent_overage_reward / 2.0
 
-        if choice == 1:
+        if numpy.random.binomial(1, epsilon):
             return numpy.random.choice(len(self._last_prediction))
         else:
             return numpy.argmax(self._last_prediction)

@@ -42,7 +42,7 @@ class Root(Widget):
         self._plot.set_xlabel("step")
         self._plot.set_ylabel("reward")
         self._plot.set_xlim(0.0, _PLOTTING_INTERVAL + 200)
-        self._plot.set_ylim(-1.1, 1.1)
+        self._plot.set_ylim(-1.1, 1.2)
         self._plot_lines = []
 
         self._save_button = Button(

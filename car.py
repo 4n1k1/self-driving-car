@@ -156,7 +156,7 @@ class Car(RelativeLayout):
             else:
                 self._velocity = self._full_speed
 
-                reward = 1.0
+                reward = 0.7
         else:
             if self.parent.sand[int(self.position.x), int(self.position.y)] > 0:
                 self._velocity = self._sand_speed
@@ -165,7 +165,7 @@ class Car(RelativeLayout):
             else:
                 self._velocity = self._full_speed
 
-                reward -0.8
+                reward = -0.9
 
         if self.position.x < _PADDING:
             self.pos = (_PADDING, self.pos[1])
