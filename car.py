@@ -148,25 +148,6 @@ class Car(RelativeLayout):
     def _get_reward(self, approached_destination):
         reward = 0.0
 
-        if approached_destination:
-            if self.parent.sand[int(self.position.x), int(self.position.y)] > 0:
-                self._velocity = self._sand_speed
-
-                reward = -0.3
-            else:
-                self._velocity = self._full_speed
-
-                reward = 0.7
-        else:
-            if self.parent.sand[int(self.position.x), int(self.position.y)] > 0:
-                self._velocity = self._sand_speed
-
-                reward = -1.0
-            else:
-                self._velocity = self._full_speed
-
-                reward = -0.9
-
         if self.position.x < _PADDING:
             self.pos = (_PADDING, self.pos[1])
             reward = -1.0
@@ -182,6 +163,23 @@ class Car(RelativeLayout):
         if self.position.y > self.parent.height - _PADDING:
             self.pos = (self.pos[0], self.parent.height - _PADDING)
             reward = -1.0
+
+        if reward < 0.0:
+            if approached_destination:
+                if self.parent.sand[int(self.position.x), int(self.position.y)] > 0:
+                    self._velocity = self._sand_speed
+                    reward += 0.1
+                else:
+                    self._velocity = self._full_speed
+                    reward += 0.3
+        else:
+             if approached_destination:
+                if self.parent.sand[int(self.position.x), int(self.position.y)] > 0:
+                    self._velocity = self._sand_speed
+                    reward -= 0.2
+                else:
+                    self._velocity = self._full_speed
+                    reward += 0.6
 
         return reward
 
@@ -216,7 +214,7 @@ class Car(RelativeLayout):
         self._set_collision_signal_value(self._right_sensor)
         self._set_collision_signal_value(self._mid_sensor)
 
-        reward = self._get_reward(new_distance <= self._distance)
+        reward = self._get_reward(new_distance < self._distance)
 
         self._last_action = self._brain.update(
             reward,
